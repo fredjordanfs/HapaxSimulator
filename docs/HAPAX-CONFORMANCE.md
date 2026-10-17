@@ -40,6 +40,13 @@ simulés ne valident pas la réception d'un synthétiseur USB physique.
 Les limites de valeurs n'immobilisent plus le repère des encodeurs actifs. La
 rotation visuelle est séparée de la valeur bornée ; l'inversion du geste est prise
 en compte immédiatement. Dans les réglages de piste simplifiés, seuls les
-encodeurs 5 et 6 tournent : les autres sont explicitement marqués inactifs, sauf
-le principal 9 qui est un bouton de retour. Ce sous-ensemble ne reproduit pas
+encodeurs 5 et 6 tournent : les autres annoncent leur absence d’affectation sur
+l’écran, sauf le principal 9 qui est un bouton de retour. La forme, la couleur
+et la position des neuf boutons restent identiques à l’ouverture du menu. Ce sous-ensemble ne reproduit pas
 l'ensemble des paramètres de piste du matériel.
+
+Les tests comparent la géométrie et l’apparence avant/après un maintien de piste,
+puis ferment les réglages par STEP, par l’encodeur principal et par un appui court
+sur une piste. Après chacune de ces sorties, les neuf encodeurs sont manipulés
+pour vérifier qu’ils retrouvent effectivement leur action. Le premier appui sur
+un pad ferme les réglages sans modifier de note cachée derrière le menu.

@@ -32,9 +32,11 @@ indiqués comme tels. La sortie physique reste **commune à toutes les pistes**,
 contrairement au routage multiport par piste du matériel ; les canaux sont indépendants.
 
 Dans ce menu, seuls les encodeurs **5 et 6** ont une action rotative. Les encodeurs
-non affectés sont grisés avec un tiret ; les toucher affiche « INACTIF » sur
-l'écran droit. Le principal **9** porte un symbole de retour et se presse pour fermer.
-**STEP** revient aux commandes habituelles. Les encodeurs actifs continuent
+non affectés le signalent sur l’écran droit lorsqu’on les touche, sans modifier
+leur forme ni leur couleur. Le principal **9** se presse pour fermer.
+**STEP** ou un appui court sur une piste revient aux commandes habituelles.
+Un premier appui sur un pad ferme le menu sans éditer de note ; les commandes
+de façade quittent aussi le menu avant d’effectuer leur action. Les encodeurs actifs continuent
 visuellement à tourner aux limites de leur valeur ; le MIDI reste borné à 0–127,
 les canaux à 1–16, et inverser le glissement répond immédiatement.
 

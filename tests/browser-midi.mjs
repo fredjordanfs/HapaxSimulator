@@ -54,6 +54,8 @@ let injected;
 try {
   await call('Runtime.enable');
   await call('Page.enable');
+  await call('Network.enable');
+  await call('Network.setCacheDisabled',{cacheDisabled:true});
   injected = (await call('Page.addScriptToEvaluateOnNewDocument', {source:mock})).identifier;
   await call('Emulation.setDeviceMetricsOverride', {width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await call('Page.navigate', {url:'http://127.0.0.1:8000/'});
@@ -192,9 +194,23 @@ try {
   };
   const tap=async selector=>{const p=await centre(selector);await touch('touchStart',p);await touch('touchEnd',p)};
   const hold=async selector=>{const p=await centre(selector);await touch('touchStart',p);await wait(600);return p;};
+
+  const knobAppearance=()=>evaluate(`Array.from(document.querySelectorAll('.knob'),k=>{
+    const r=k.getBoundingClientRect(),s=getComputedStyle(k);return {
+      x:r.x,y:r.y,width:r.width,height:r.height,opacity:s.opacity,
+      radius:s.borderRadius,background:s.backgroundImage,angle:k.style.getPropertyValue('--angle'),before:getComputedStyle(k,'::before').content
+    };
+  })`);
+  const beforeTrackMenu=await knobAppearance();
+  const trackRectangles=()=>evaluate(`Array.from(document.querySelectorAll('[data-track]'),t=>{const r=t.getBoundingClientRect();return [r.x,r.y,r.width,r.height,getComputedStyle(t).borderRadius]})`);
+  const beforeTrackButtons=await trackRectangles();
   const track=await hold('[data-track="5"]');
   trackCheck(await evaluate(`document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS · PISTE 6')`),'Hold opens settings on left screen');
   trackCheck(await evaluate(`document.querySelector('#displayright').textContent.includes('RÉGLAGES PISTE 6')`),'Right screen explains settings');
+
+  const heldTrackMenu=await knobAppearance();
+  trackCheck(JSON.stringify(await trackRectangles())===JSON.stringify(beforeTrackButtons),'Track buttons keep their dimensions during hold');
+  for(let i=0;i<9;i++)trackCheck(JSON.stringify(heldTrackMenu[i])===JSON.stringify(beforeTrackMenu[i]),'Track hold preserves knob '+i+' shape and appearance: '+JSON.stringify({before:beforeTrackMenu[i],after:heldTrackMenu[i]}));
   await touch('touchEnd',track);
   trackCheck(await evaluate(`document.querySelector('[data-track="5"]').getAttribute('aria-expanded')==='true'`),'Menu stays after releasing finger');
   trackCheck(await evaluate(`getComputedStyle(document.querySelector('[data-track="5"]')).userSelect==='none'&&getSelection().toString()===''`),'Track label is not selected as text');
@@ -252,6 +268,26 @@ try {
   await tap('[data-track="0"]');await tap('#save');
   trackCheck(await evaluate(`JSON.parse(localStorage.getItem('hapax-simulator-v8')).channels[5]===7`),'Facade channel setting is saved');
 
+
+  // Every exit route must restore all nine encoders, not just redraw a screen.
+  for(const [name,selector] of [['STEP','#rightcol [data-label="STEP"]'],['menu encoder','[data-knob="8"]'],['track tap','[data-track="5"]']]){
+    const held=await hold('[data-track="5"]');await touch('touchEnd',held);
+    await tap(selector);
+    trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),name+' exits settings');
+    for(let i=0;i<9;i++){
+      trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').getAttribute('aria-disabled')==='false'`),name+' restores encoder '+i);
+      const value=await evaluate(`Number(document.querySelector('[data-knob="${i}"]').getAttribute('aria-label').split(' : ')[1])`);
+      const delta=value>123?-3:3,p=await centre('[data-knob="'+i+'"]');
+      await touch('touchStart',p);await touch('touchMove',{x:p.x,y:p.y-delta*3});await touch('touchEnd',p);
+      trackCheck(await evaluate(`Number(document.querySelector('[data-knob="${i}"]').getAttribute('aria-label').split(' : ')[1])`)===value+delta,name+' encoder '+i+' really edits again');
+    }
+  }
+  const heldPadMenu=await hold('[data-track="0"]');await touch('touchEnd',heldPadMenu);
+  const padBefore=await evaluate(`document.querySelector('.pad').classList.contains('on')`);
+  await tap('.pad');
+  trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),'Pad dismisses settings');
+  trackCheck(await evaluate(`document.querySelector('.pad').classList.contains('on')`)===padBefore,'Dismissal tap does not edit hidden notes');
+  await tap('[data-track="0"]');await tap('#save');
   // Fresh session: authorize and choose a port using only the facade.
   const savedProject=await evaluate(`localStorage.getItem('hapax-simulator-v8')`);
   await call('Page.reload');
