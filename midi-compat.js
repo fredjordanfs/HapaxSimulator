@@ -28,38 +28,48 @@
   function output(port, {softwareTiming = false, onError = () => {},
     now = () => performance.now(), schedule = setTimeout, cancel = clearTimeout} = {}) {
     if (!softwareTiming && typeof port.clear === 'function') return port;
-    let pending = [], timer = null;
+    let pending = [], timer = null, armedAt = Infinity;
+    const timing={notes:0,totalLate:0,maxLate:0};
     function arm() {
-      if (timer !== null) cancel(timer);
-      timer = pending.length ? schedule(flush, Math.max(1, pending[0].at - now())) : null;
+      const next=pending[0]?.at??Infinity;
+      if(timer!==null&&armedAt===next)return;
+      if(timer!==null)cancel(timer);
+      armedAt=next;
+      timer=pending.length?schedule(flush,Math.max(1,next-now())):null;
     }
     function clear() {
       if (timer !== null) cancel(timer);
-      timer = null; pending = [];
+      timer = null; armedAt=Infinity; pending = [];
     }
     function flush() {
-      timer = null;
+      timer = null;armedAt=Infinity;
       if (port.state === 'disconnected') { clear(); return; }
       // One queue preserves insertion order for bank, program and note messages
       // sharing a timestamp, even when the bridge ignores native timestamps.
       while (pending.length && pending[0].at <= now()) {
         const event = pending.shift();
+        if((event.data[0]&0xf0)===0x90&&event.data[2]>0){
+          const late=Math.max(0,now()-event.at);timing.notes++;timing.totalLate+=late;timing.maxLate=Math.max(timing.maxLate,late);
+        }
         try { port.send(event.data); }
         catch (error) { clear(); onError(error); return; }
       }
       arm();
     }
     return {
-      raw:port,
+      raw:port,timing,
       get id() { return port.id; },
       get name() { return port.name; },
       get state() { return port.state; },
       send(data, at = now()) {
-        pending.push({data:Array.from(data), at});
-        pending.sort((a,b) => a.at - b.at);
-        if (timer !== null) cancel(timer);
-        timer = null;
-        flush();
+        const event={data:Array.from(data),at};
+        // Stable insertion keeps equal-time bank/program/notes in send order.
+        let index=pending.length;while(index>0&&pending[index-1].at>at)index--;
+        pending.splice(index,0,event);
+        if(pending[0].at<=now()){
+          if(timer!==null)cancel(timer);
+          flush();
+        }else arm();
       },
       clear
 

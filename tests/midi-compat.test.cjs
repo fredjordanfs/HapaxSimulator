@@ -60,3 +60,12 @@ test('bridge queue preserves bank/program/note ordering at the same timestamp', 
   assert.equal(queue.size,1);
   advance(10);assert.deepEqual(messages,ordered);
 });
+
+test('queuing later bridge events never rearms the imminent note timer', () => {
+ const {wrapped,queue,messages,advance}=fixture();
+ wrapped.send([0x90,60,100],10);const first=[...queue.keys()][0];
+ for(let i=0;i<100;i++)wrapped.send([0x80,61,0],100+i);
+ assert.deepEqual([...queue.keys()],[first]);
+ advance(12);assert.deepEqual(messages[0],[0x90,60,100]);
+ assert.equal(wrapped.timing.notes,1);assert.equal(wrapped.timing.maxLate,2);
+});

@@ -104,7 +104,7 @@ try {
     for(let i=0;i<9;i++){
       const k=document.querySelectorAll('.knob')[i];
       k.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));
-      check(messages().some(m=>m.data[0]===0xb4&&m.data[1]===20+i),'Encoder CC '+i);
+      check(i<4?!messages().some(m=>m.data[0]===0xb4&&m.data[1]===20+i):messages().some(m=>m.data[0]===0xb4&&m.data[1]===20+i),i<4?'Musical control sends no unintended CC '+i:'Encoder CC '+i);
     }
     change('#midi-encoder','4'); change('#midi-cc','74');
     document.querySelectorAll('.knob')[4].dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));
@@ -282,10 +282,10 @@ try {
     trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),name+' exits settings');
     for(let i=0;i<9;i++){
       trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').getAttribute('aria-disabled')==='false'`),name+' restores encoder '+i);
-      const value=await evaluate(`Number(document.querySelector('[data-knob="${i}"]').getAttribute('aria-label').split(' : ')[1])`);
+      const value=await evaluate(`Number(document.querySelector('[data-knob="${i}"]').dataset.value)`);
       const delta=value>123?-3:3,p=await centre('[data-knob="'+i+'"]');
       await touch('touchStart',p);await touch('touchMove',{x:p.x,y:p.y-delta*3});await touch('touchEnd',p);
-      trackCheck(await evaluate(`Number(document.querySelector('[data-knob="${i}"]').getAttribute('aria-label').split(' : ')[1])`)===value+delta,name+' encoder '+i+' really edits again');
+      trackCheck(await evaluate(`Number(document.querySelector('[data-knob="${i}"]').dataset.value)`)===value+delta,name+' encoder '+i+' really edits again');
     }
   }
   const heldPadMenu=await hold('[data-track="0"]');await touch('touchEnd',heldPadMenu);
@@ -299,7 +299,7 @@ try {
   await call('Page.reload');
   let fresh=false;
   for(let i=0;i<100;i++){
-    if(await evaluate(`window.device?.requests.length===0&&document.querySelector('.knob')?.getAttribute('aria-label')==='Encodeur 1 : 100'`)){fresh=true;break}
+    if(await evaluate(`window.device?.requests.length===0&&document.querySelector('.knob')?.dataset.value==='100'`)){fresh=true;break}
     await wait(100);
   }
   assert(fresh,'Fresh facade-only session');

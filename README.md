@@ -56,6 +56,39 @@ huit hauteurs visibles sont enregistrées avec leur vélocité au pas courant ; 
 autres sont transmises sans enregistrement. Les messages système, SysEx et
 l'horloge entrante ne sont pas interprétés. Éviter de boucler sortie vers entrée.
 
+## Encodeurs et copie depuis la façade
+
+Hors menu de piste, l'écran gauche montre les huit fonctions **réellement actives**,
+numérotées et disposées comme les boutons physiques : première rangée 1/2/5/6,
+deuxième rangée 3/4/7/8. L'écran droit détaille le dernier encodeur utilisé ; le
+principal règle le tempo dans la fenêtre BPM et le CC 28 ailleurs. Les valeurs
+affichées et les libellés accessibles montrent les unités musicales. L'octave, le gate et le swing
+changent dès le premier cran, respectivement d'une octave ou d'un point de pourcentage. Ce mode reste **COMMANDES SIMPLIFIÉES** : le véritable
+écran STEP du matériel (§3.4) et ses huit paramètres par note ne sont pas reproduits.
+
+- **COPY**, puis **PASTE** : copier/remplacer la page courante. La longueur de
+  lecture s'étend si la page collée contient des notes au-delà de l'ancienne fin.
+- **Maintenir COPY + toucher une piste**, puis **maintenir PASTE + toucher la
+  piste destination** : copier toutes ses pages et patterns, réglages, canal et
+  routage inclus (§6.5, p. 93). Les pistes restent indépendantes après collage.
+- En **PATTERN**, **COPY + pad**, puis **PASTE + pad** : copier toutes les pages et
+  les réglages du pattern. La colonne désigne la piste, la ligne le pattern
+  (§5.9, p. 83). Le choix du pattern à lire reste global aux pistes.
+- **COPY + pad STEP** copie une note ; on peut aussi **tenir une ou plusieurs notes
+  puis toucher COPY**. **PASTE + pad STEP** place les notes à cette position dans
+  le temps, en conservant les hauteurs. **2ND puis PASTE + pad** transpose vers
+  la rangée visée (§3.5, p. 49–50). Seuls les pads tenus sont sélectionnés ; pas
+  encore de sélection rectangulaire ou de notes hors des huit rangées visibles.
+- **DELETE + pad** efface cette note, ou tout le pattern en mode PATTERN.
+  **DELETE + piste** efface toutes les notes de la piste, en gardant ses réglages.
+- **UNDO** annule ces collages/effacements, y compris la longueur et le routage
+  modifiés. **2ND puis UNDO** rétablit. Changer de pattern vide cet historique.
+
+Les maintiens utilisent deux contacts simultanés sur iPad. Les appuis simples
+COPY/PASTE restent des raccourcis de page. Un clipboard vide ou de type incompatible
+est annoncé sur l'écran. Les fonctions non implémentées sont signalées ; AUTOM
+n'édite plus des notes sous une fausse apparence de lane d'automation.
+
 ## iPad et appareil USB/MIDI
 
 Safari ne fournit pas Web MIDI sur iPad. Une piste est l'application dédiée
@@ -78,6 +111,18 @@ des messages côté JavaScript pour les ponts qui ignorent les timestamps. Cela
 n'ajoute pas l'accès MIDI à Safari et n'établit pas une validation sur matériel réel.
 Le timing dépend alors aussi des timers du navigateur.
 
+Pendant la lecture, seuls le curseur, la position et la barre de progression sont
+mis à jour ; les écrans et les encodeurs ne sont pas reconstruits à chaque pas.
+La file MIDI conserve son prochain timer quand de nouveaux événements plus
+lointains arrivent. Le diagnostic **retard maximal des notes** mesure le retard
+logiciel depuis le dernier Play sur les ponts utilisant les timers JavaScript ;
+il ne mesure ni la latence USB ni la réception par le synthétiseur. Le test
+Chromium ne prouve pas la régularité de Web MIDI Browser sur iPad.
+
+Pour tester un rythme droit, régler **SWING à 0%**, poser des notes espacées
+régulièrement, désactiver les autres pistes et garder l'application visible.
+Un swing non nul alterne volontairement les intervalles entre les notes.
+
 ## Envoyer du MIDI
 
 1. Brancher un synthétiseur/interface MIDI ou créer un port MIDI virtuel vers un DAW.
@@ -89,15 +134,16 @@ Le timing dépend alors aussi des timers du navigateur.
 5. En mode **LIVE**, toucher un pad envoie une note de durée définie par le gate.
    **REC** écrit la note sur le pas courant pendant la lecture, ou la colonne
    touchée à l'arrêt. Les répétitions d'une même note encore active sont ignorées.
-6. Tourner/glisser un encodeur ou utiliser ses touches fléchées pour envoyer un CC.
-   Les neuf encodeurs utilisent les CC 20–28 par défaut. Le panneau MIDI permet
-   de choisir un encodeur et de changer son CC (0–119). La valeur transmise est 0–127.
+6. Les encodeurs **1–4** règlent vélocité, octave, gate et swing ; ils n'envoient
+   aucun CC supplémentaire au synthétiseur. Les encodeurs **5–9** envoient les
+   CC 24–28 par défaut, configurables dans le panneau MIDI (0–119).
+   Ces commandes sont une extension simplifiée, pas le mode ASSIGN du Hapax.
 7. Pour piloter un appareil synchronisé, cocher **Envoyer Clock / Start / Stop**
    et configurer cet appareil pour recevoir l'horloge externe. **PLAY** émet Start
    (FA), puis 24 Clock (F8) par noire ; **STOP** émet Stop (FC). Chaque démarrage
    reprend au premier pas. Sans cette option, aucun message de synchronisation n'est envoyé.
 
-La vélocité est mémorisée dans chaque note. Les encodeurs 1–4 règlent également
+La vélocité est mémorisée dans chaque note. Les encodeurs 1–4 règlent
 la vélocité des nouvelles notes, l'octave, le gate et le swing. Octave, gate et
 swing sont communs aux pistes. Le gate détermine la durée avant Note Off
 (minimum 1 ms). Le swing retarde les doubles croches impaires ; l'horloge MIDI
@@ -146,6 +192,8 @@ node tests/browser-midi.mjs --legacy
 node tests/browser-track-parameters.mjs
 node tests/browser-track-parameters.mjs --legacy
 node tests/browser-ui.mjs
+node tests/browser-workflow.mjs
+node tests/browser-workflow.mjs --legacy
 ```
 
 Dans le conteneur cloud isolé, Chromium peut nécessiter `--no-sandbox --disable-dev-shm-usage`.

@@ -34,7 +34,7 @@ async function evaluate(expression) {
 }
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const label=i=>evaluate(`document.querySelectorAll('.knob')[${i}].getAttribute('aria-label')`);
-const number=i=>evaluate(`Number(document.querySelectorAll('.knob')[${i}].getAttribute('aria-label').split(' : ')[1])`);
+const number=i=>evaluate(`Number(document.querySelectorAll('.knob')[${i}].dataset.value)`);
 async function mouse(type,x,y){await call('Input.dispatchMouseEvent',{type,x,y,button:'left',buttons:type==='mouseReleased'?0:1,clickCount:1})}
 async function touch(type,x,y){await call('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'||type==='touchCancel'?[]:[{x,y,id:1,radiusX:3,radiusY:3}]});await evaluate('new Promise(requestAnimationFrame)')}
 try {
@@ -47,7 +47,7 @@ try {
  await evaluate(`localStorage.removeItem('hapax-simulator-v8')`);
  await call('Page.reload',{ignoreCache:true});
  for(let i=0;i<100;i++){
-  if(await evaluate(`document.querySelectorAll('.knob').length===9&&document.querySelector('.knob').getAttribute('aria-label')==='Encodeur 1 : 100'`))break;
+  if(await evaluate(`document.querySelectorAll('.knob').length===9&&document.querySelector('.knob').dataset.value==='100'`))break;
   await wait(100);
  }
  for(const [name,width,height,touchMode] of [['desktop',1440,1000,false],['ipad-landscape',1180,820,true],['ipad-portrait',820,1180,true]]){
