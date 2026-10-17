@@ -21,7 +21,7 @@ et du protocole MIDI ne constituent pas une certification de conformité au mat�
 | Affectations propres à chaque piste pour les huit encodeurs (§1.22, p. 25). | Extension simplifiée : neuf CC configurables partagés entre les pistes, envoyés sur le canal de la piste choisie. Ce n'est pas le mode ASSIGN complet. |
 | Chaque note possède hauteur/octave, vélocité, longueur, microtiming, chance, roll et math (§3.4–3.5, p. 47–49). | Seule la vélocité est stockée par note. Octave, gate et swing sont globaux ; les éditions par note, la préécoute STEP, les durées à deux doigts et les autres paramètres restent absents. La convention d'octave et la grille de huit notes sont simplifiées. |
 | 16 patterns par piste ; colonnes = pistes et lignes = patterns, avec 8 lignes visibles (§5.1, p. 73). | Huit patterns seulement, sélection commune aux pistes ; appuyer sur une ligne choisit ce pattern pour toutes les pistes. Pas de patterns indépendants par piste ni de Song. |
-| Modes Automation, FX, Live et conditions FILL (chapitres 2, 4 et 6 ; §3.13). | LIVE/REC MIDI fonctionne dans le sous-ensemble documenté du README. Pas de moteur complet d'automation, de FX, de conditions FILL, de gammes/accords, de réception MIDI, de CV ou de MPE. |
+| Modes Automation, FX, Live et conditions FILL (chapitres 2, 4 et 7 ; §3.11). | LIVE/REC MIDI fonctionne dans le sous-ensemble documenté du README. Pas de moteur complet d'automation, de FX, de conditions FILL, de gammes/accords, de réception MIDI, de CV ou de MPE. |
 
 ## Vérification de l'interface
 
