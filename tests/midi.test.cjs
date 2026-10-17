@@ -20,6 +20,25 @@ test('Note On/Off carries channel, pitch, velocity and exact gate duration', () 
   assert.equal(midi.note(15, 60, 96, 93.75, 20), true);
   assert.deepEqual(messages, [{data:[0x9f,60,96], at:20}, {data:[0x8f,60,0], at:113.75}]);
 });
+test('incoming held notes are released by Note Off rather than a fixed gate timer',()=>{
+ const {midi,messages,advance}=fixture();
+ assert(midi.hold(2,61,99));advance(2000);
+ assert.equal(messages.length,1);
+ midi.release(2,61);assert.deepEqual(messages.at(-1).data,[0x82,61,0]);
+ assert.equal(midi.active.size,0);
+});
+test('transport exposes absolute steps beyond 16 for long patterns',()=>{
+ const {midi,steps,advance}=fixture();midi.tempo=300;midi.start();
+ for(let t=10;t<1000;t+=10)advance(t);
+ assert(steps.some(s=>s[3]===17));assert(midi.absoluteStep>=18);
+});
+test('multiport sync callback receives Start, Clock and Stop after queue cancellation',()=>{
+ let time=0;const sent=[];
+ const midi=new HapaxMidi({now:()=>time,onSync:data=>sent.push(data[0]),beforeStop:()=>sent.push('clear')});
+ midi.clockEnabled=true;midi.start();time=50;midi.pump();midi.stop();
+ assert.equal(sent[0],0xfa);assert(sent.includes(0xf8));
+ assert.deepEqual(sent.slice(-2),['clear',0xfc]);
+});
 test('notes are bounded to MIDI bytes and zero velocity never creates an active note', () => {
   const {midi, messages} = fixture();
   midi.note(0, 999, 999, 20);

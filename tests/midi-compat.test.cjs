@@ -52,3 +52,11 @@ test('ports missing clear() automatically use cancellable software timing', () =
   wrapped.send([0xf8],10);assert.equal(queue.size,1);
   wrapped.clear();assert.equal(queue.size,0);
 });
+
+test('bridge queue preserves bank/program/note ordering at the same timestamp', () => {
+  const {wrapped,messages,advance,queue}=fixture();
+  const ordered=[[0xb0,0,1],[0xb0,32,3],[0xc0,4],[0x90,60,100]];
+  for(const message of ordered)wrapped.send(message,10);
+  assert.equal(queue.size,1);
+  advance(10);assert.deepEqual(messages,ordered);
+});

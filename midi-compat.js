@@ -28,26 +28,41 @@
   function output(port, {softwareTiming = false, onError = () => {},
     now = () => performance.now(), schedule = setTimeout, cancel = clearTimeout} = {}) {
     if (!softwareTiming && typeof port.clear === 'function') return port;
-    const pending = new Set();
+    let pending = [], timer = null;
+    function arm() {
+      if (timer !== null) cancel(timer);
+      timer = pending.length ? schedule(flush, Math.max(1, pending[0].at - now())) : null;
+    }
+    function clear() {
+      if (timer !== null) cancel(timer);
+      timer = null; pending = [];
+    }
+    function flush() {
+      timer = null;
+      if (port.state === 'disconnected') { clear(); return; }
+      // One queue preserves insertion order for bank, program and note messages
+      // sharing a timestamp, even when the bridge ignores native timestamps.
+      while (pending.length && pending[0].at <= now()) {
+        const event = pending.shift();
+        try { port.send(event.data); }
+        catch (error) { clear(); onError(error); return; }
+      }
+      arm();
+    }
     return {
       raw:port,
       get id() { return port.id; },
       get name() { return port.name; },
       get state() { return port.state; },
       send(data, at = now()) {
-        const delay = at - now();
-        if (delay <= 0) { port.send(Array.from(data)); return; }
-        // Some bridges send immediately and ignore the Web MIDI timestamp.
-        const message = Array.from(data);
-        const timer = schedule(() => {
-          pending.delete(timer);
-          if (port.state === 'disconnected') return;
-          try { port.send(message); }
-          catch (error) { this.clear(); onError(error); }
-        }, delay);
-        pending.add(timer);
+        pending.push({data:Array.from(data), at});
+        pending.sort((a,b) => a.at - b.at);
+        if (timer !== null) cancel(timer);
+        timer = null;
+        flush();
       },
-      clear() { for (const timer of pending) cancel(timer); pending.clear(); }
+      clear
+
     };
   }
   root.HapaxMidiCompat = {ports, open, output};

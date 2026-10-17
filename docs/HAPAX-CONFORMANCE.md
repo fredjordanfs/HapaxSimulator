@@ -11,7 +11,8 @@ et du protocole MIDI ne constituent pas une certification de conformité au mat�
 
 | Fonction du manuel | État du simulateur après vérification |
 | --- | --- |
-| Maintenir une piste ouvre les réglages de sortie et de canal (§1.4 et §1.7, p. 11 et 14). | Implémenté : appui de 500 ms, OUTPUT et CHANNEL sur l'écran gauche, encodeurs physiques 5 et 6. Le menu reste ouvert après relâchement comme adaptation tactile. Canal indépendant par piste ; une seule sortie physique commune, sans entrées MIDI ni routage multiport par piste. |
+| Maintenir une piste ouvre les réglages de sortie et de canal (§1.4 et §1.7, p. 11 et 14). | Implémenté : appui de 500 ms, huit réglages sur l’écran gauche, détail sur le droit. Le menu reste ouvert après relâchement comme adaptation tactile. Ports et canaux d’entrée/sortie indépendants par piste. |
+| Réglages primaires PC, TRIG, LENGTH, RUN, OUTPUT/CHANNEL, INPUT/CHANNEL (§6.2–6.3, p. 89–91). | Implémentés : PC et banques MSB/LSB, FREE/RESTART, 1–512 pas, six directions, ports indépendants, filtre d’entrée et ALL ACTIVE. Réception des messages de canal, notes tenues, enregistrement REC des huit hauteurs visibles. Clic encodeur 1 alterne PC/MSB/LSB ; clic 3 alterne longueur fine/barre. Ces adaptations tactiles ne reproduisent pas tous les sous-menus et gestes du matériel. |
 | Play relance une séquence déjà en lecture ; Stop remet la position à zéro et désactive REC (§1.5, p. 12). | Corrigé pour les boutons de la façade. Le bouton supplémentaire PLAY/STOP en bas reste un interrupteur pratique. Les différents niveaux de Stop du matériel ne sont pas reproduits : le simulateur coupe les notes immédiatement. |
 | Huit encodeurs pour l'écran gauche, un encodeur de menu pour le droit (§1.8, p. 14). | Centre de rotation visuel corrigé pour les neuf encodeurs. Glissements, retour au point de départ, annulation tactile et clavier testés. Les affectations contextuelles du matériel restent partielles ; un clic incrémente la valeur dans le simulateur. |
 | UNDO et 2ND + UNDO pour REDO ; changement de pattern vide l'historique (§1.20, p. 23). | Corrigé pour les modifications de notes. L'historique ne couvre pas encore tous les paramètres. 2ND est un verrou tactile dans le simulateur, plutôt qu'une combinaison maintenue. |
@@ -22,7 +23,7 @@ et du protocole MIDI ne constituent pas une certification de conformité au mat�
 | Affectations propres à chaque piste pour les huit encodeurs (§1.22, p. 25). | Extension simplifiée : neuf CC configurables partagés entre les pistes, envoyés sur le canal de la piste choisie. Ce n'est pas le mode ASSIGN complet. |
 | Chaque note possède hauteur/octave, vélocité, longueur, microtiming, chance, roll et math (§3.4–3.5, p. 47–49). | Seule la vélocité est stockée par note. Octave, gate et swing sont globaux ; les éditions par note, la préécoute STEP, les durées à deux doigts et les autres paramètres restent absents. La convention d'octave et la grille de huit notes sont simplifiées. |
 | 16 patterns par piste ; colonnes = pistes et lignes = patterns, avec 8 lignes visibles (§5.1, p. 73). | Huit patterns seulement, sélection commune aux pistes ; appuyer sur une ligne choisit ce pattern pour toutes les pistes. Pas de patterns indépendants par piste ni de Song. |
-| Modes Automation, FX, Live et conditions FILL (chapitres 2, 4 et 7 ; §3.11). | LIVE/REC MIDI fonctionne dans le sous-ensemble documenté du README. Pas de moteur complet d'automation, de FX, de conditions FILL, de gammes/accords, de réception MIDI, de CV ou de MPE. |
+| Modes Automation, FX, Live et conditions FILL (chapitres 2, 4 et 7 ; §3.11). | LIVE/REC MIDI fonctionne dans le sous-ensemble documenté du README. Pas de moteur complet d'automation, de FX, de conditions FILL, de gammes/accords, de traitement MIDI système entrant, de CV ou de MPE. |
 
 ## Vérification de l'interface
 
@@ -39,11 +40,16 @@ simulés ne valident pas la réception d'un synthétiseur USB physique.
 
 Les limites de valeurs n'immobilisent plus le repère des encodeurs actifs. La
 rotation visuelle est séparée de la valeur bornée ; l'inversion du geste est prise
-en compte immédiatement. Dans les réglages de piste simplifiés, seuls les
-encodeurs 5 et 6 tournent : les autres annoncent leur absence d’affectation sur
-l’écran, sauf le principal 9 qui est un bouton de retour. La forme, la couleur
-et la position des neuf boutons restent identiques à l’ouverture du menu. Ce sous-ensemble ne reproduit pas
-l'ensemble des paramètres de piste du matériel.
+en compte immédiatement. Dans les réglages de piste, les huit encodeurs éditent
+leurs paramètres ; le principal tourne pour naviguer et se presse pour fermer.
+La forme, la couleur et la position des neuf boutons restent identiques à
+l'ouverture du menu.
+
+`tests/browser-track-parameters.mjs` contrôle les notes réellement produites
+selon longueur/direction, FREE/RESTART, l'ordre banque/PC, deux ports de sortie,
+les filtres d'entrée, les notes tenues, l'enregistrement REC et la sauvegarde.
+Les mêmes scénarios sont exécutés avec un pont MIDI ancien simulé. Ils ne
+prouvent pas une identité de timing ou de comportement avec le firmware réel.
 
 Les tests comparent la géométrie et l’apparence avant/après un maintien de piste,
 puis ferment les réglages par STEP, par l’encodeur principal et par un appui court

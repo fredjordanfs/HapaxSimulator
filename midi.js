@@ -2,11 +2,13 @@
 (function (root) {
   'use strict';
   class HapaxMidi {
-    constructor({now = () => performance.now(), onStep = () => {}, onHalt = () => {}, onStatus = () => {}} = {}) {
+    constructor({now = () => performance.now(), onStep = () => {}, onHalt = () => {}, onStatus = () => {}, onSync = null, beforeStop = () => {}} = {}) {
       this.now = now;
       this.onStep = onStep;
       this.onHalt = onHalt;
       this.onStatus = onStatus;
+      this.onSync = onSync;
+      this.beforeStop = beforeStop;
       this.output = null;
       this.playing = false;
       this.clockEnabled = false;
@@ -15,6 +17,19 @@
       this.active = new Map();
       this.visualSteps = [];
       this.step = 0;
+      this.absoluteStep = 0;
+    }
+    sync(data,at=this.now()){if(this.onSync)this.onSync(data,at);else this.send(data,at);}
+    hold(channel,pitch,velocity){
+      const key=channel+':'+pitch;
+      if((this.active.get(key)?.until||0)>this.now())return false;
+      if(!this.send([0x90|channel,pitch,velocity]))return false;
+      this.active.set(key,{channel,pitch,until:Infinity});return true;
+    }
+    release(channel,pitch){
+      const key=channel+':'+pitch;
+      if(this.active.get(key)?.until!==Infinity)return;
+      this.send([0x80|channel,pitch,0]);this.active.delete(key);
     }
     send(data, at = this.now()) {
       if (!this.output || this.output.state === 'disconnected') return false;
@@ -64,12 +79,14 @@
     stop() {
       const wasPlaying = this.playing;
       this.playing = false;
+      this.beforeStop();
       this.silence();
       if (wasPlaying && this.clockEnabled && this.output?.state !== 'disconnected') {
-        try { this.output?.send([0xfc]); } catch (error) { /* Disconnected port. */ }
+        try { this.sync([0xfc]); } catch (error) { /* Disconnected port. */ }
       }
       this.visualSteps = [];
       this.step = 0;
+      this.absoluteStep = 0;
       this.onHalt();
     }
     setOutput(output) {
@@ -81,10 +98,11 @@
       this.playing = true;
       this.clockIndex = 0;
       this.step = 0;
+      this.absoluteStep = 0;
       this.nextClock = this.now() + 10;
       this.lastPump = this.now();
       this.visualSteps = [];
-      if (this.clockEnabled) this.send([0xfa], this.nextClock);
+      if (this.clockEnabled) this.sync([0xfa], this.nextClock);
       this.pump();
     }
     pump() {
@@ -102,20 +120,22 @@
       const stepInterval = clockInterval * 6;
       while (this.playing && this.nextClock < now + 40) {
         const at = this.nextClock;
-        if (this.clockEnabled) this.send([0xf8], at);
+        if (this.clockEnabled) this.sync([0xf8], at);
         if (!this.playing) break;
         if (this.clockIndex % 6 === 0) {
           const step = (this.clockIndex / 6) % 16;
           const swing = Math.max(0, Math.min(50, this.swing)) / 100;
           const noteTime = at + (step % 2 ? stepInterval * swing : 0);
           const duration = stepInterval * (step % 2 ? 1 - swing : 1 + swing);
-          this.visualSteps.push({step, at:noteTime});
-          this.onStep(step, noteTime, duration);
+          this.visualSteps.push({step, absolute:this.clockIndex/6, at:noteTime});
+          this.onStep(step, noteTime, duration, this.clockIndex/6);
         }
         this.clockIndex++;
         this.nextClock += clockInterval;
       }
-      while (this.visualSteps.length && this.visualSteps[0].at <= now) this.step = this.visualSteps.shift().step;
+      while (this.visualSteps.length && this.visualSteps[0].at <= now) {
+        const visual=this.visualSteps.shift();this.step=visual.step;this.absoluteStep=visual.absolute;
+      }
     }
   }
   root.HapaxMidi = HapaxMidi;

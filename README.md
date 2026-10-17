@@ -11,34 +11,50 @@ de rétablir une édition de notes. Dans la fenêtre BPM, l'encodeur principal r
 le tempo. Les flèches ↑/↓ changent l'octave et ←/→ changent de page ; le zoom +/−
 et le snapshot ne sont pas encore simulés.
 
-## Régler le canal depuis la façade
+## Régler une piste depuis la façade
 
-Maintenir un bouton de piste 1–16 pendant une demi-seconde ouvre **TRACK SETTINGS**
-sur l'écran gauche. Le chiffre du bouton n'est plus sélectionnable comme du texte.
-Relâcher le doigt : le menu reste ouvert pour faciliter le réglage tactile.
-Le manuel décrit ce menu aux §1.4 et §1.7 (p. 11 et 14).
+Maintenir une piste 1–16 pendant une demi-seconde ouvre **TRACK SETTINGS** sur
+l'écran gauche. Relâcher : le menu reste ouvert pour faciliter le réglage tactile.
+Les huit encodeurs correspondent aux réglages primaires du manuel hapaxOS 3.10,
+§6.2–6.3, p. 89–91 ; l'écran droit détaille le réglage sélectionné.
 
-- L'**encodeur 5**, celui en haut à gauche du groupe situé à droite de l'écran
-  gauche, règle **OUTPUT**. Le toucher une première fois permet d'autoriser MIDI
-  si nécessaire ; ensuite tourner/glisser choisit une sortie détectée.
-- L'**encodeur 6**, juste à sa droite, règle **CHANNEL**, de 1 à 16, pour cette piste.
-- L'**encodeur principal 9** (toucher) ou un bouton de mode comme **STEP** ferme
-  le menu. Un appui court sur une piste sélectionne cette piste et ferme le menu.
-- Au clavier, **Maj+Entrée** sur un bouton de piste ouvre ses réglages.
+| Encodeur | Action dans les réglages de piste |
+| --- | --- |
+| 1 | PC : OFF ou 0–127. Appuyer alterne PC, MSB et LSB. |
+| 2 | TRIG : FREE conserve la position, RESTART repart au début lors du changement de pattern. |
+| 3 | LENGTH : 1–512 pas, soit 32 pages. Tourner par 16 pas ; appuyer alterne pas/barre. |
+| 4 | RUN : FORWARD, REVERSE, PING-PONG, RANDOM BAR, RANDOM BEAT, RANDOM 1/16. |
+| 5 | OUTPUT : port indépendant par piste, COMMUNE ou OFF. Toucher autorise MIDI si nécessaire. |
+| 6 | CHANNEL : canal de sortie 1–16. |
+| 7 | INPUT : OFF, ALL ACTIVE ou port d'entrée. |
+| 8 | IN CHANNEL : ALL ou canal 1–16 pour le port choisi. |
+| 9, principal | Tourner sélectionne le réglage détaillé ; appuyer ferme le menu. |
 
-Les réglages sont affichés sur les écrans du simulateur ; le panneau inférieur
-reste synchronisé. SAVE conserve les canaux. Les réglages non simulés sont
-indiqués comme tels. La sortie physique reste **commune à toutes les pistes**,
-contrairement au routage multiport par piste du matériel ; les canaux sont indépendants.
+Les numéros désignent les deux groupes de quatre encodeurs, puis le principal.
+STEP ou un appui court sur une piste ferme aussi le menu ; Maj+Entrée sur une
+piste l'ouvre au clavier. Le premier appui sur un pad ferme sans éditer la note.
+Les neuf encodeurs gardent leur forme et leur pivot. Leur repère continue à tourner
+aux limites de valeur, et inverser le geste répond immédiatement.
 
-Dans ce menu, seuls les encodeurs **5 et 6** ont une action rotative. Les encodeurs
-non affectés le signalent sur l’écran droit lorsqu’on les touche, sans modifier
-leur forme ni leur couleur. Le principal **9** se presse pour fermer.
-**STEP** ou un appui court sur une piste revient aux commandes habituelles.
-Un premier appui sur un pad ferme le menu sans éditer de note ; les commandes
-de façade quittent aussi le menu avant d’effectuer leur action. Les encodeurs actifs continuent
-visuellement à tourner aux limites de leur valeur ; le MIDI reste borné à 0–127,
-les canaux à 1–16, et inverser le glissement répond immédiatement.
+PC/MSB/LSB, longueur, direction et TRIG sont enregistrés par pattern et piste.
+Le routage et les canaux sont propres à chaque piste. Le mode COMMUNE reprend
+le sélecteur de sortie inférieur, pour conserver les anciens projets ; choisir un
+port dans OUTPUT rend la piste indépendante. Les sorties explicites sauvegardées
+sont rouvertes après **Activer MIDI**, jamais avant l'autorisation.
+
+Les messages de banque CC0/CC32 précèdent Program Change puis les notes. Ils
+sont émis au lancement et au changement de pattern ; PC OFF n'envoie rien.
+Des configurations identiques partageant le même port/canal sont regroupées. Deux pistes partageant port et canal pilotent
+le même instrument. FREE/RESTART agit au prochain pas planifié. Le choix de
+pattern reste commun aux 16 pistes : le mode PATTERN complet du matériel manque.
+
+INPUT transmet les messages MIDI de canal vers la sortie de la piste, en remplaçant
+le canal. ALL ACTIVE transmet seulement à la piste sélectionnée, sans filtre de
+canal. Les notes reçues restent tenues jusqu'au Note Off ; changer de sélection
+n'empêche pas leur relâchement. Avec REC pendant la lecture, les notes dans les
+huit hauteurs visibles sont enregistrées avec leur vélocité au pas courant ; les
+autres sont transmises sans enregistrement. Les messages système, SysEx et
+l'horloge entrante ne sont pas interprétés. Éviter de boucler sortie vers entrée.
 
 ## iPad et appareil USB/MIDI
 
@@ -68,8 +84,8 @@ Le timing dépend alors aussi des timers du navigateur.
 2. Cliquer sur **Activer MIDI**, autoriser l'accès, puis choisir une **Sortie**.
    Aucune sortie n'est sélectionnée automatiquement. Aucune permission SysEx n'est demandée.
 3. Choisir une piste et son canal : pistes 1–16 → canaux 1–16 par défaut.
-4. En mode **STEP**, activer des pads puis **PLAY**. Les 16 pistes du pattern et de
-   la page sélectionnés jouent ensemble ; **MUTE** coupe la piste sélectionnée.
+4. En mode **STEP**, activer des pads puis **PLAY**. Les 16 pistes du pattern jouent ensemble selon
+   leur longueur et leur direction, sur toutes leurs pages ; **MUTE** coupe la piste sélectionnée.
 5. En mode **LIVE**, toucher un pad envoie une note de durée définie par le gate.
    **REC** écrit la note sur le pas courant pendant la lecture, ou la colonne
    touchée à l'arrêt. Les répétitions d'une même note encore active sont ignorées.
@@ -94,9 +110,8 @@ de sortie ou de canal et déconnexion arrêtent également la lecture. Changer
 l'option d'horloge arrête la lecture avant d'appliquer ce réglage.
 
 **SAVE** conserve les notes, canaux, associations CC et option d'horloge dans le
-navigateur, avec la même clé que la V8 précédente. Il faut choisir de nouveau
-la sortie à chaque ouverture. La réception MIDI, le SysEx et un synthétiseur
-audio interne ne sont pas inclus. Le son provient de l'appareil ou du DAW récepteur.
+navigateur, avec la même clé que la V8 précédente. Les sorties explicites sont mémorisées ; la sortie COMMUNE doit être choisie
+à chaque ouverture. Le SysEx et un synthétiseur audio interne ne sont pas inclus. Le son provient de l'appareil ou du DAW récepteur.
 Les banques A/B restent des indicateurs ; FX et FILL ne traitent pas les notes.
 
 Garder l'onglet visible : le séquenceur s'arrête quand il est masqué ou si le
@@ -112,13 +127,13 @@ Aucune dépendance npm ni compilation. Depuis la racine du dépôt :
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-Servir ensemble `index.html`, `app.js`, `midi.js` et `midi-compat.js`. HTTPS est nécessaire hors
+Servir ensemble `index.html`, `app.js`, `track.js`, `midi.js` et `midi-compat.js`. HTTPS est nécessaire hors
 localhost. La configuration GitHub Pages ne nécessite aucune modification.
 
 Tests du protocole et du temps avec une horloge et une sortie simulées :
 
 ```sh
-node --test tests/midi.test.cjs tests/midi-compat.test.cjs
+node --test tests/*.test.cjs
 ```
 
 Tests d'intégration dans un profil Chromium jetable, avec une sortie Web MIDI
@@ -128,6 +143,8 @@ simulée (aucun appareil réel ni autorisation système nécessaire) :
 chromium --headless --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 --user-data-dir=/tmp/hapax-midi-test about:blank
 node tests/browser-midi.mjs
 node tests/browser-midi.mjs --legacy
+node tests/browser-track-parameters.mjs
+node tests/browser-track-parameters.mjs --legacy
 node tests/browser-ui.mjs
 ```
 

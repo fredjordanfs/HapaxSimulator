@@ -37,9 +37,12 @@ const makePort = (id,name) => ({id,name,state:'connected',
   clear(){ device.clears++; }
 });
 device.port=makePort('test','Test synth'); device.other=makePort('other','Other synth');
-device.access={outputs:new Map([['test',device.port],['other',device.other]])};
+device.input={id:'keyboard',name:'USB keyboard',state:'connected',onmidimessage:null,async open(){device.access.onstatechange?.()}};
+device.input2={id:'keyboard2',name:'Second keyboard',state:'connected',onmidimessage:null,async open(){device.access.onstatechange?.()}};
+device.emit=(id,data)=>device.access.inputs.get(id)?.onmidimessage?.({data:new Uint8Array(data),receivedTime:performance.now()});
+device.access={outputs:new Map([['test',device.port],['other',device.other]]),inputs:new Map([['keyboard',device.input],['keyboard2',device.input2]])};
 if(${legacy}){
-  delete device.port.clear;delete device.other.clear;delete device.port.open;delete device.other.open;
+  delete device.port.clear;delete device.other.clear;delete device.port.open;delete device.other.open;delete device.input.open;delete device.input2.open;
   const original=device.access.outputs.values.bind(device.access.outputs);
   device.access.outputs.values=()=>{const iterator=original();return {next:()=>iterator.next()}};
 }
@@ -201,6 +204,7 @@ try {
       radius:s.borderRadius,background:s.backgroundImage,angle:k.style.getPropertyValue('--angle'),before:getComputedStyle(k,'::before').content
     };
   })`);
+  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   const beforeTrackMenu=await knobAppearance();
   const trackRectangles=()=>evaluate(`Array.from(document.querySelectorAll('[data-track]'),t=>{const r=t.getBoundingClientRect();return [r.x,r.y,r.width,r.height,getComputedStyle(t).borderRadius]})`);
   const beforeTrackButtons=await trackRectangles();
@@ -209,7 +213,8 @@ try {
   trackCheck(await evaluate(`document.querySelector('#displayright').textContent.includes('RÉGLAGES PISTE 6')`),'Right screen explains settings');
 
   const heldTrackMenu=await knobAppearance();
-  trackCheck(JSON.stringify(await trackRectangles())===JSON.stringify(beforeTrackButtons),'Track buttons keep their dimensions during hold');
+  const heldTrackButtons=await trackRectangles();
+  trackCheck(JSON.stringify(heldTrackButtons)===JSON.stringify(beforeTrackButtons),'Track buttons keep their dimensions during hold: '+JSON.stringify({before:beforeTrackButtons[0],after:heldTrackButtons[0]}));
   for(let i=0;i<9;i++)trackCheck(JSON.stringify(heldTrackMenu[i])===JSON.stringify(beforeTrackMenu[i]),'Track hold preserves knob '+i+' shape and appearance: '+JSON.stringify({before:beforeTrackMenu[i],after:heldTrackMenu[i]}));
   await touch('touchEnd',track);
   trackCheck(await evaluate(`document.querySelector('[data-track="5"]').getAttribute('aria-expanded')==='true'`),'Menu stays after releasing finger');
@@ -221,12 +226,13 @@ try {
   for(const i of [0,1,2,3,6,7]){
     const p=await centre('[data-knob="'+i+'"]');
     const before=await evaluate(`document.querySelector('[data-knob="${i}"]').style.getPropertyValue('--angle')`);
+    const fieldBefore=await evaluate(`document.querySelector('[data-track-field="${i}"]').textContent`);
     await touch('touchStart',p);await touch('touchMove',{x:p.x,y:p.y-12});await touch('touchEnd',p);
-    trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').getAttribute('aria-disabled')==='true'`),'Unassigned encoder '+i+' is explicitly inactive');
-    trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').style.getPropertyValue('--angle')`)===before,'Unassigned encoder '+i+' does not pretend to edit a parameter');
-    trackCheck(await evaluate(`document.querySelector('#displayright').textContent.includes('INACTIF')`),'Inactive encoder explanation appears on device screen');
+    trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').getAttribute('aria-disabled')==='false'`),'Track encoder '+i+' is active');
+    trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').style.getPropertyValue('--angle')`)!==before,'Track encoder '+i+' rotates');
+    trackCheck(await evaluate(`document.querySelector('[data-track-field="${i}"]').textContent`)!==fieldBefore,'Track encoder '+i+' edits its actual setting');
   }
-  trackCheck(await evaluate(`device.messages.length===0`),'Inactive encoders emit no MIDI');
+  trackCheck(await evaluate(`!device.messages.some(m=>m.data[0]>=0xb0&&m.data[0]<0xc0&&m.data[1]>=20&&m.data[1]<=28)`),'Track settings do not emit unrelated assigned CCs');
   await tap('[data-knob="5"]');
   trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='7'`),'Encoder 6 sets track 6 channel to 7');
   trackCheck(await evaluate(`document.querySelector('#displayleft').textContent.includes('07')`),'Channel is visible on left screen');
