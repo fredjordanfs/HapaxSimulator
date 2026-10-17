@@ -25,9 +25,12 @@ function call(method, params = {}) {
     ws.send(JSON.stringify({id:key, method, params}));
   });
 }
+const legacy=process.argv.includes('--legacy');
 const mock = `
 localStorage.removeItem('hapax-simulator-v8');
 window.device = {messages:[],clears:0,mode:'ok',requests:[]};
+Object.defineProperty(navigator,'platform',{configurable:true,value:${legacy?'"MacIntel"':'"Linux"'}});
+Object.defineProperty(navigator,'maxTouchPoints',{configurable:true,value:${legacy?5:0}});
 const makePort = (id,name) => ({id,name,state:'connected',
   async open(){ device.access.onstatechange?.(); return this; },
   send(data,at=performance.now()){device.messages.push({port:id,data:[...data],at});},
@@ -35,6 +38,12 @@ const makePort = (id,name) => ({id,name,state:'connected',
 });
 device.port=makePort('test','Test synth'); device.other=makePort('other','Other synth');
 device.access={outputs:new Map([['test',device.port],['other',device.other]])};
+if(${legacy}){
+  delete device.port.clear;delete device.other.clear;delete device.port.open;delete device.other.open;
+  const original=device.access.outputs.values.bind(device.access.outputs);
+  device.access.outputs.values=()=>{const iterator=original();return {next:()=>iterator.next()}};
+}
+
 device.request=async options=>{
   device.requests.push(options); if(device.mode==='denied')throw new DOMException('Denied','NotAllowedError');
   return device.access;
@@ -116,7 +125,7 @@ try {
     const settings=$('#displayleft').textContent;
     const gatePercent=Number(settings.match(/GATE (\\d+)%/)[1]);
     const swingPercent=Number(settings.match(/SWING (\\d+)%/)[1]);
-    check(Math.abs(off.at-on.at-125*(1+swingPercent/100)*gatePercent/100)<0.001,'Gate and swing affect real note duration');
+    check(Math.abs(off.at-on.at-125*(1+swingPercent/100)*gatePercent/100)<${legacy?35:0.001},'Gate and swing affect real note duration');
     check(messages().some(m=>m.data[0]===0x91),'All tracks play together');
     check(on.data[1]>=60&&on.data[1]<=127,'Octave maps to valid MIDI pitch');
     $('#transport').click();
@@ -144,7 +153,7 @@ try {
     check(!messages().some(m=>[0xfa,0xf8,0xfc].includes(m.data[0])),'Clock-disabled transport emits no sync bytes');
     $('#midi-clock').checked=true;$('#midi-clock').dispatchEvent(new Event('change'));
     $('#transport').click(); $('#midi-panic').click();
-    check(device.clears>0&&$('#transport').textContent.includes('PLAY'),'Panic clears queue and stops');
+    check((${legacy}||device.clears>0)&&$('#transport').textContent.includes('PLAY'),'Panic clears queue and stops');
     for(let channel=0;channel<16;channel++)check(messages().some(m=>m.data[0]===(0xb0|channel)&&m.data[1]===120),'Panic channel '+channel);
     $('#transport').click(); change('#midi-output','other');await wait(20);
     check($('#transport').textContent.includes('PLAY'),'Output switch stops playback');
@@ -180,7 +189,7 @@ try {
   }
   assert(restored,'Project and MIDI settings restored without reconnecting hardware');
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(JSON.stringify({status:'passed',...result.result.value,restored,runtimeErrors:errors.length}));
+  console.log(JSON.stringify({status:'passed',legacy,...result.result.value,restored,runtimeErrors:errors.length}));
 } finally {
   if(injected) await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:injected});
   ws.close();

@@ -3,6 +3,28 @@
 Simulateur non officiel du Squarp Hapax : édition de notes et sortie Web MIDI.
 Ouvrir https://fredjordanfs.github.io/HapaxSimulator/ dans Chrome ou Edge.
 
+## iPad et appareil USB/MIDI
+
+Safari ne fournit pas Web MIDI sur iPad. Une piste est l'application dédiée
+[Web MIDI Browser](https://apps.apple.com/fr/app/web-midi-browser/id953846217),
+qui fournit un pont avec le MIDI natif iOS. Sa disponibilité actuelle et son
+fonctionnement sur chaque version d'iPadOS restent à vérifier sur l'appareil.
+Ouvrir le simulateur **dans cette application**, pas dans Safari.
+
+Brancher un appareil USB MIDI reconnu par iPadOS, ou une interface USB–MIDI
+si l'appareil possède des prises DIN. Sur iPad USB-C, employer le câble/hub
+adapté ; sur un modèle Lightning, un adaptateur USB compatible est nécessaire.
+Un appareil gourmand peut nécessiter un hub alimenté. Cliquer **Activer MIDI**,
+choisir la sortie puis tester une note en mode **LIVE** sur le canal de réception
+réglé dans l'appareil. Garder le navigateur MIDI au premier plan.
+
+L'application web accepte les anciens itérateurs de ports sans `Symbol.iterator`,
+les ports sans `open()` et borne l'attente d'ouverture à cinq secondes. Sur iPad
+ou avec des ports dépourvus de `clear()`, elle gère les échéances et l'annulation
+des messages côté JavaScript pour les ponts qui ignorent les timestamps. Cela
+n'ajoute pas l'accès MIDI à Safari et n'établit pas une validation sur matériel réel.
+Le timing dépend alors aussi des timers du navigateur.
+
 ## Envoyer du MIDI
 
 1. Brancher un synthétiseur/interface MIDI ou créer un port MIDI virtuel vers un DAW.
@@ -53,13 +75,13 @@ Aucune dépendance npm ni compilation. Depuis la racine du dépôt :
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-Servir ensemble `index.html`, `app.js` et `midi.js`. HTTPS est nécessaire hors
+Servir ensemble `index.html`, `app.js`, `midi.js` et `midi-compat.js`. HTTPS est nécessaire hors
 localhost. La configuration GitHub Pages ne nécessite aucune modification.
 
 Tests du protocole et du temps avec une horloge et une sortie simulées :
 
 ```sh
-node --test tests/midi.test.cjs
+node --test tests/midi.test.cjs tests/midi-compat.test.cjs
 ```
 
 Tests d'intégration dans un profil Chromium jetable, avec une sortie Web MIDI
@@ -68,6 +90,7 @@ simulée (aucun appareil réel ni autorisation système nécessaire) :
 ```sh
 chromium --headless --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 --user-data-dir=/tmp/hapax-midi-test about:blank
 node tests/browser-midi.mjs
+node tests/browser-midi.mjs --legacy
 ```
 
 Dans le conteneur cloud isolé, Chromium peut nécessiter `--no-sandbox --disable-dev-shm-usage`.
@@ -75,3 +98,7 @@ Le test navigateur réinitialise le projet dans ce profil jetable. Il vérifie
 permissions refusées/indisponibles, ports, branchement/débranchement, canaux,
 notes, CC, gate/swing, horloge, Stop, Panic, LIVE/REC et sauvegarde/rechargement.
 La réception effective doit être vérifiée sur un équipement MIDI réel.
+
+Le mode `--legacy` simule un iPad avec un pont qui ignore les timestamps,
+expose des itérateurs non standard et ne fournit ni `open()` ni `clear()`.
+Il ne constitue pas un test de l'application iPad réelle.

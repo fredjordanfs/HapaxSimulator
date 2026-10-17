@@ -11,6 +11,8 @@ for(let i=1;i<=16;i++)midiChannel.add(new Option(String(i),String(i)));
 for(let i=0;i<9;i++)midiEncoder.add(new Option(String(i+1),String(i)));
 const midi=new HapaxMidi({onStep:playMidiStep,onHalt:()=>{state.playing=false;state.step=0;render()},onStatus:message=>{midiStatus.textContent=message}});
 let midiAccess=null,connectionVersion=0;
+const ipadMidi=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function outputPorts(){return HapaxMidiCompat.ports(midiAccess?.outputs)}
 const storageKey='hapax-simulator-v8';
 function load(){try{const data=JSON.parse(localStorage.getItem(storageKey));if(!data)return;for(const k of ['tempo','track','mode','page','bank','pattern','patterns','values','gate','swing','scale','velocity','octave'])if(data[k]!==undefined)state[k]=data[k];state.page=Math.max(0,Math.min(3,state.page));state.pattern=Math.max(0,Math.min(7,state.pattern));state.muted=new Set(data.muted||[]);if(Array.isArray(data.channels)&&data.channels.length===16&&data.channels.every(n=>Number.isInteger(n)&&n>=1&&n<=16))state.channels=data.channels;if(Array.isArray(data.ccNumbers)&&data.ccNumbers.length===9&&data.ccNumbers.every(n=>Number.isInteger(n)&&n>=0&&n<=119))state.ccNumbers=data.ccNumbers;state.clockEnabled=data.clockEnabled===true}catch(e){console.warn('Load:',e)}}
 function save(){try{const keys=['tempo','track','mode','page','bank','pattern','patterns','values','gate','swing','scale','velocity','octave'];let data=Object.fromEntries(keys.map(k=>[k,state[k]]));data.muted=[...state.muted];data.channels=state.channels;data.ccNumbers=state.ccNumbers;data.clockEnabled=state.clockEnabled;localStorage.setItem(storageKey,JSON.stringify(data));flash('Projet sauvegardé dans ce navigateur')}catch(e){flash('Sauvegarde indisponible')}}
@@ -58,15 +60,15 @@ function playMidiStep(step,at,duration){
 function updateOutputs(){
  const selected=midi.output?.id||'';
  midiOutput.replaceChildren(new Option('Aucune sortie', ''));
- if(midiAccess)for(const port of midiAccess.outputs.values())if(port.state!=='disconnected')midiOutput.add(new Option(port.name||'Sortie MIDI',port.id));
- if((selected&&!midiAccess.outputs.has(selected))||midi.output?.state==='disconnected'){
+ if(midiAccess)for(const port of outputPorts())if(port.state!=='disconnected')midiOutput.add(new Option(port.name||'Sortie MIDI',port.id));
+ if((selected&&!outputPorts().some(port=>port.id===selected))||midi.output?.state==='disconnected'){
   connectionVersion++;midi.setOutput(null);midiStatus.textContent='Sortie déconnectée · choisissez une sortie MIDI.';
  }else midiOutput.value=selected;
  midiOutput.disabled=!midiAccess;
 }
 document.getElementById('midi-connect').addEventListener('click',async()=>{
  const button=document.getElementById('midi-connect');
- if(!window.isSecureContext||!navigator.requestMIDIAccess){midiStatus.textContent='Web MIDI indisponible. Utilisez Chrome ou Edge sur HTTPS (ou localhost).';return}
+ if(!window.isSecureContext||!navigator.requestMIDIAccess){midiStatus.textContent='Web MIDI indisponible dans ce navigateur. Safari sur iPad ne donne pas accès au MIDI. Consultez les instructions iPad ci-dessous ; Chrome/Edge conviennent sur ordinateur.';return}
  button.disabled=true;
  try{
   if(!midiAccess){midiAccess=await navigator.requestMIDIAccess({sysex:false});midiAccess.onstatechange=updateOutputs}
@@ -76,14 +78,14 @@ document.getElementById('midi-connect').addEventListener('click',async()=>{
  finally{button.disabled=false}
 });
 midiOutput.addEventListener('change',async()=>{
- const version=++connectionVersion,port=midiAccess?.outputs.get(midiOutput.value);
+ const version=++connectionVersion,port=outputPorts().find(port=>port.id===midiOutput.value);
  midi.setOutput(null);
  if(!port){midiStatus.textContent='Aucune sortie MIDI sélectionnée.';return}
  try{
-  await port.open();if(version!==connectionVersion)return;
+  await HapaxMidiCompat.open(port);if(version!==connectionVersion)return;
   if(port.state==='disconnected')throw Error('Disconnected');
-  midi.setOutput(port);midiOutput.value=port.id;midiStatus.textContent='Sortie : '+(port.name||'MIDI');
- }catch(error){if(version===connectionVersion){midi.setOutput(null);midiOutput.value='';midiStatus.textContent='Impossible d’ouvrir cette sortie. Vérifiez la connexion MIDI.'}}
+  midi.setOutput(HapaxMidiCompat.output(port,{softwareTiming:ipadMidi,onError:()=>{midi.setOutput(null);midiOutput.value='';midiStatus.textContent='Connexion MIDI interrompue · reconnectez la sortie.'}}));midiOutput.value=port.id;midiStatus.textContent='Sortie : '+(port.name||'MIDI')+(ipadMidi?' · pont MIDI iPad':'');
+ }catch(error){if(version===connectionVersion){midi.setOutput(null);midiOutput.value='';midiStatus.textContent='Impossible d’ouvrir cette sortie (ou délai dépassé). Vérifiez la connexion MIDI puis actualisez.'}}
 });
 midiChannel.addEventListener('change',()=>{const channel=Number(midiChannel.value);stop();state.channels[state.track]=channel;render()});
 midiClock.addEventListener('change',()=>{const enabled=midiClock.checked;stop();state.clockEnabled=enabled;midi.clockEnabled=enabled;render()});
