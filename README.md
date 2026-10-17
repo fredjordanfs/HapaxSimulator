@@ -3,6 +3,14 @@
 Simulateur non officiel du Squarp Hapax : édition de notes et sortie Web MIDI.
 Ouvrir https://fredjordanfs.github.io/HapaxSimulator/ dans Chrome ou Edge.
 
+La vérification par rapport au manuel hapaxOS 3.10, les corrections et les fonctions
+encore partielles sont détaillées dans [l'état de conformité](docs/HAPAX-CONFORMANCE.md).
+Le bouton Play de la façade relance la séquence ; Stop désactive aussi REC.
+Le bouton PLAY/STOP ajouté en bas reste un interrupteur. `2ND` puis `UNDO` permet
+de rétablir une édition de notes. Dans la fenêtre BPM, l'encodeur principal règle
+le tempo. Les flèches ↑/↓ changent l'octave et ←/→ changent de page ; le zoom +/−
+et le snapshot ne sont pas encore simulés.
+
 ## iPad et appareil USB/MIDI
 
 Safari ne fournit pas Web MIDI sur iPad. Une piste est l'application dédiée
@@ -91,6 +99,7 @@ simulée (aucun appareil réel ni autorisation système nécessaire) :
 chromium --headless --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 --user-data-dir=/tmp/hapax-midi-test about:blank
 node tests/browser-midi.mjs
 node tests/browser-midi.mjs --legacy
+node tests/browser-ui.mjs
 ```
 
 Dans le conteneur cloud isolé, Chromium peut nécessiter `--no-sandbox --disable-dev-shm-usage`.

@@ -144,7 +144,7 @@ try {
     check(!messages().some(m=>m.data[0]===0x94),'Muted track emits no notes');
     check(messages().some(m=>m.data[0]===0x91),'Other tracks remain audible');
     button('#leftcol','MUTE').click();
-    button('#rightcol','LIVE').click(); $('#transport').click(); await wait(180);
+    button('#rightcol','LIVE').click(); button('#leftcol','REC').click(); $('#transport').click(); await wait(180);
     $('.pad[data-row="4"][data-col="0"]').click(); $('#transport').click();
     button('#rightcol','STEP').click();
     check(!!document.querySelector('.pad.on[data-row="4"]'),'REC captures live input while transport runs');
