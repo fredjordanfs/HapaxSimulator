@@ -31,6 +31,13 @@ reste synchronisé. SAVE conserve les canaux. Les réglages non simulés sont
 indiqués comme tels. La sortie physique reste **commune à toutes les pistes**,
 contrairement au routage multiport par piste du matériel ; les canaux sont indépendants.
 
+Dans ce menu, seuls les encodeurs **5 et 6** ont une action rotative. Les encodeurs
+non affectés sont grisés avec un tiret ; les toucher affiche « INACTIF » sur
+l'écran droit. Le principal **9** porte un symbole de retour et se presse pour fermer.
+**STEP** revient aux commandes habituelles. Les encodeurs actifs continuent
+visuellement à tourner aux limites de leur valeur ; le MIDI reste borné à 0–127,
+les canaux à 1–16, et inverser le glissement répond immédiatement.
+
 ## iPad et appareil USB/MIDI
 
 Safari ne fournit pas Web MIDI sur iPad. Une piste est l'application dédiée

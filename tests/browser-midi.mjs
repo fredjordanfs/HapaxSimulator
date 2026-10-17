@@ -200,6 +200,17 @@ try {
   trackCheck(await evaluate(`getComputedStyle(document.querySelector('[data-track="5"]')).userSelect==='none'&&getSelection().toString()===''`),'Track label is not selected as text');
   await tap('[data-knob="4"]');await wait(30);
   trackCheck(await evaluate(`document.querySelector('#midi-output').value==='test'`),'Encoder 5 selects USB output from facade');
+
+  await evaluate(`device.messages.length=0`);
+  for(const i of [0,1,2,3,6,7]){
+    const p=await centre('[data-knob="'+i+'"]');
+    const before=await evaluate(`document.querySelector('[data-knob="${i}"]').style.getPropertyValue('--angle')`);
+    await touch('touchStart',p);await touch('touchMove',{x:p.x,y:p.y-12});await touch('touchEnd',p);
+    trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').getAttribute('aria-disabled')==='true'`),'Unassigned encoder '+i+' is explicitly inactive');
+    trackCheck(await evaluate(`document.querySelector('[data-knob="${i}"]').style.getPropertyValue('--angle')`)===before,'Unassigned encoder '+i+' does not pretend to edit a parameter');
+    trackCheck(await evaluate(`document.querySelector('#displayright').textContent.includes('INACTIF')`),'Inactive encoder explanation appears on device screen');
+  }
+  trackCheck(await evaluate(`device.messages.length===0`),'Inactive encoders emit no MIDI');
   await tap('[data-knob="5"]');
   trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='7'`),'Encoder 6 sets track 6 channel to 7');
   trackCheck(await evaluate(`document.querySelector('#displayleft').textContent.includes('07')`),'Channel is visible on left screen');
@@ -211,6 +222,15 @@ try {
   trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='10'`),'Repeated pointer coordinate does not accumulate channel changes');
   await touch('touchMove',channelKnob);await touch('touchEnd',channelKnob);
   trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='7'`),'Returning channel drag restores initial channel without phantom tap');
+
+  await evaluate(`(()=>{const k=document.querySelector('[data-knob="5"]');for(let i=0;i<20;i++)k.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}))})()`);
+  const maximumAngle=await evaluate(`document.querySelector('[data-knob="5"]').style.getPropertyValue('--angle')`);
+  await touch('touchStart',channelKnob);await touch('touchMove',{x:channelKnob.x,y:channelKnob.y-9});
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='16'`),'MIDI channel cannot exceed 16');
+  trackCheck(await evaluate(`document.querySelector('[data-knob="5"]').style.getPropertyValue('--angle')`)!==maximumAngle,'Channel encoder keeps rotating at limit');
+  await touch('touchMove',{x:channelKnob.x,y:channelKnob.y-6});await touch('touchEnd',channelKnob);
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='15'`),'Channel responds immediately to reverse gesture at maximum');
+  await evaluate(`(()=>{const k=document.querySelector('[data-knob="5"]');for(let i=0;i<8;i++)k.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))})()`);
   await evaluate(`device.messages.length=0`);
   await tap('[data-knob="8"]');
   trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),'Menu encoder closes settings');

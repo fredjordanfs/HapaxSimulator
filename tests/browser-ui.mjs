@@ -38,14 +38,14 @@ const number=i=>evaluate(`Number(document.querySelectorAll('.knob')[${i}].getAtt
 async function mouse(type,x,y){await call('Input.dispatchMouseEvent',{type,x,y,button:'left',buttons:type==='mouseReleased'?0:1,clickCount:1})}
 async function touch(type,x,y){await call('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'||type==='touchCancel'?[]:[{x,y,id:1,radiusX:3,radiusY:3}]});await evaluate('new Promise(requestAnimationFrame)')}
 try {
- await call('Runtime.enable');await call('Page.enable');
+ await call('Runtime.enable');await call('Page.enable');await call('Network.enable');await call('Network.setCacheDisabled',{cacheDisabled:true});
  await call('Page.navigate',{url:'http://127.0.0.1:8000/'});
  for(let i=0;i<100;i++){
   if(await evaluate(`!!document.querySelector('#displayleft')?.textContent`))break;
   await wait(100);
  }
  await evaluate(`localStorage.removeItem('hapax-simulator-v8')`);
- await call('Page.reload');
+ await call('Page.reload',{ignoreCache:true});
  for(let i=0;i<100;i++){
   if(await evaluate(`document.querySelectorAll('.knob').length===9&&document.querySelector('.knob').getAttribute('aria-label')==='Encodeur 1 : 100'`))break;
   await wait(100);
@@ -88,6 +88,18 @@ try {
  check(await number(0)===beforeCancel,'Cancelled gesture does not increment');
  await touch('touchStart',point.x,point.y);await touch('touchEnd',point.x,point.y);
  check(await number(0)===beforeCancel+1,'Encoder works after pointercancel');
+
+ // Rotary encoders keep turning at limits; reversing must respond immediately.
+ await evaluate(`(()=>{const k=document.querySelector('.knob');for(let i=0;i<128;i++)k.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}))})()`);
+ check(await number(0)===127,'Velocity upper bound');
+ const limitPoint=await evaluate(`(()=>{const r=document.querySelector('.knob').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+ const angleBefore=await evaluate(`document.querySelector('.knob').style.getPropertyValue('--angle')`);
+ await touch('touchStart',limitPoint.x,limitPoint.y);await touch('touchMove',limitPoint.x,limitPoint.y-12);
+ check(await evaluate(`document.querySelector('.knob').style.getPropertyValue('--angle')`)!==angleBefore,'Physical encoder turns beyond value limit');
+ check(await number(0)===127,'Turning at maximum does not overflow MIDI value');
+ await touch('touchMove',limitPoint.x,limitPoint.y-9);
+ check(await number(0)===126,'Reverse direction responds immediately after reaching limit');
+ await touch('touchEnd',limitPoint.x,limitPoint.y-9);
  // Exercise actual native keyboard activation, not synthetic button.click().
  await call('Emulation.setTouchEmulationEnabled',{enabled:false});
  await evaluate(`document.querySelectorAll('.knob')[8].focus()`);
