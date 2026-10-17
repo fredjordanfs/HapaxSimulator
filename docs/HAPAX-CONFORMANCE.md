@@ -64,3 +64,11 @@ Il vérifie aussi les affectations affichées, l'absence de CC parasites, la sta
 du DOM pendant la lecture et les intervalles des notes émises avec un pont simulé.
 Les écarts mesurés dans Chromium ne constituent pas une mesure sur le Nina ni
 sur l'application iPad. SWING doit être à zéro pour comparer à une grille droite.
+
+Le mode de programmation MIDI peut être comparé entre horodatage natif et timers
+JavaScript. Un port iPad exposant `clear()` n'est plus forcé en logiciel ; les ports
+sans annulation native conservent le repli logiciel. `--ipad-native` vérifie les
+échéances envoyées en avance avec une identité iPad simulée. L'indicateur logiciel
+n'inclut pas la latence du pont MIDI, du câble ou du synthétiseur. L'enregistrement
+fourni montre SWING 0% et 4 ms d'appel logiciel, mais sa piste audio est silencieuse :
+il ne permet pas de mesurer les attaques réelles du Nina.

@@ -6,14 +6,14 @@ const leftBtns=[...document.querySelectorAll('#leftcol button')],rightBtns=[...d
 const fresh=()=>Array.from({length:32},()=>Array.from({length:8},()=>Array(16).fill(0)));
 const state={playing:false,recording:false,tempo:120,step:0,track:0,mode:'STEP',page:0,bank:'A',pattern:0,values:[100,54,95,0,64,64,64,64,1],patterns:Array.from({length:16},()=>Array.from({length:8},fresh)),clipboard:null,second:false,muted:new Set(),undo:[],redo:[],lastTick:performance.now(),gate:75,swing:0,scale:0,velocity:100,octave:3,metronome:false,fill:false,screenMessage:'',screenUntil:0,bpmEdit:false,trackSettings:false};
 state.trackData=Array.from({length:16},()=>HapaxTrack.settings());
-state.trackFocus=5;state.pcField=0;state.lengthFine=false;state.playPage=0;
+state.timingMode='auto';state.trackFocus=5;state.pcField=0;state.lengthFine=false;state.playPage=0;
 const routeEngines=new Map(),outputRequests=new Map(),heldInput=new Map(),boundInputs=new Map(),programCache=new Map();
 const origins=Array(16).fill(0),randomOffsets=Array(16).fill(0);let scheduledTick=-1,randomSeed=1,inputBudget=0,inputBudgetTime=0,inputRouting=false,inputDirty=false;
 const heldPads=new Set(),consumedPads=new Set(),consumedButtons=new WeakMap();let heldAction=null;
 const padColumns=Array.from({length:16},(_,col)=>pads.filter(p=>Number(p.dataset.col)===col));
 const silentMidi={note:()=>false,hold:()=>false,release(){},cc(){},send(){}};
 const knobAngles=state.values.map(value=>-135+270*value/127);
-const midiChannel=document.getElementById('midi-channel'),midiOutput=document.getElementById('midi-output'),midiClock=document.getElementById('midi-clock'),midiEncoder=document.getElementById('midi-encoder'),midiCC=document.getElementById('midi-cc'),midiStatus=document.getElementById('midi-status');
+const midiChannel=document.getElementById('midi-channel'),midiOutput=document.getElementById('midi-output'),midiClock=document.getElementById('midi-clock'),midiEncoder=document.getElementById('midi-encoder'),midiCC=document.getElementById('midi-cc'),midiStatus=document.getElementById('midi-status'),midiTimingMode=document.getElementById('midi-timing-mode');
 state.channels=Array.from({length:16},(_,i)=>i+1);state.ccNumbers=Array.from({length:9},(_,i)=>20+i);state.clockEnabled=false;
 for(let i=1;i<=16;i++)midiChannel.add(new Option(String(i),String(i)));
 for(let i=0;i<9;i++)midiEncoder.add(new Option(String(i+1),String(i)));
@@ -34,13 +34,27 @@ function usedEngines(){
  return engines.values();
 }
 function broadcastSync(data,at){for(const engine of usedEngines())engine.send(data,at)}
+function wrapOutput(port,engine){
+ return HapaxMidiCompat.output(port,{softwareTiming:state.timingMode==='software',onError:()=>{
+  engine.output=null;engine.active.clear();stop();midiStatus.textContent='Connexion MIDI interrompue';render();
+ }});
+}
+function changeTimingMode(mode){
+ const common=midi.output?.id;stop();state.timingMode=mode==='software'?'software':'auto';
+ for(const [id,engine] of routeEngines){
+  const port=outputPorts().find(p=>p.id===id&&p.state!=='disconnected');
+  engine.setOutput(port?wrapOutput(port,engine):null);
+ }
+ midi.setOutput(routeEngines.get(common)?.output||null);
+ midiStatus.textContent='Programmation MIDI modifiée · relancez PLAY pour comparer.';render();
+}
 async function ensureOutput(port){
  const existing=routeEngines.get(port.id);
  if(existing?.output&&(existing.output===port||existing.output.raw===port))return existing;
  await HapaxMidiCompat.open(port);
  if(port.state==='disconnected')throw Error('MIDI disconnected');
  const engine=new HapaxMidi({onStatus:message=>{engine.output=null;stop();midiStatus.textContent=message;render()}});
- const wrapped=HapaxMidiCompat.output(port,{softwareTiming:ipadMidi,onError:()=>{engine.output=null;engine.active.clear();stop();midiStatus.textContent='Connexion MIDI interrompue';render()}});
+ const wrapped=wrapOutput(port,engine);
  engine.setOutput(wrapped);routeEngines.set(port.id,engine);return engine;
 }
 async function assignTrackOutput(track,id){
@@ -191,8 +205,8 @@ function recordInput(track,pitch,velocity){
 }
 
 const storageKey='hapax-simulator-v8';
-function load(){try{const data=JSON.parse(localStorage.getItem(storageKey));if(!data)return;for(const k of ['tempo','track','mode','page','bank','pattern','patterns','values','gate','swing','scale','velocity','octave'])if(data[k]!==undefined)state[k]=data[k];state.page=Math.max(0,Math.min(31,state.page));state.pattern=Math.max(0,Math.min(7,state.pattern));state.muted=new Set(data.muted||[]);if(Array.isArray(data.channels)&&data.channels.length===16&&data.channels.every(n=>Number.isInteger(n)&&n>=1&&n<=16))state.channels=data.channels;if(Array.isArray(data.ccNumbers)&&data.ccNumbers.length===9&&data.ccNumbers.every(n=>Number.isInteger(n)&&n>=0&&n<=119))state.ccNumbers=data.ccNumbers;state.clockEnabled=data.clockEnabled===true;if(Array.isArray(data.trackData))state.trackData=Array.from({length:16},(_,i)=>HapaxTrack.settings(data.trackData[i]));for(const track of state.patterns)for(const pattern of track)while(pattern.length<32)pattern.push(Array.from({length:8},()=>Array(16).fill(0)))}catch(e){console.warn('Load:',e)}}
-function save(){try{const keys=['tempo','track','mode','page','bank','pattern','patterns','values','gate','swing','scale','velocity','octave'];let data=Object.fromEntries(keys.map(k=>[k,state[k]]));data.muted=[...state.muted];data.channels=state.channels;data.ccNumbers=state.ccNumbers;data.clockEnabled=state.clockEnabled;data.trackData=state.trackData;localStorage.setItem(storageKey,JSON.stringify(data));flash('Projet sauvegardé dans ce navigateur')}catch(e){flash('Sauvegarde indisponible')}}
+function load(){try{const data=JSON.parse(localStorage.getItem(storageKey));if(!data)return;for(const k of ['tempo','track','mode','page','bank','pattern','patterns','values','gate','swing','scale','velocity','octave'])if(data[k]!==undefined)state[k]=data[k];state.page=Math.max(0,Math.min(31,state.page));state.pattern=Math.max(0,Math.min(7,state.pattern));state.muted=new Set(data.muted||[]);if(Array.isArray(data.channels)&&data.channels.length===16&&data.channels.every(n=>Number.isInteger(n)&&n>=1&&n<=16))state.channels=data.channels;if(Array.isArray(data.ccNumbers)&&data.ccNumbers.length===9&&data.ccNumbers.every(n=>Number.isInteger(n)&&n>=0&&n<=119))state.ccNumbers=data.ccNumbers;state.clockEnabled=data.clockEnabled===true;state.timingMode=data.timingMode==='software'?'software':'auto';if(Array.isArray(data.trackData))state.trackData=Array.from({length:16},(_,i)=>HapaxTrack.settings(data.trackData[i]));for(const track of state.patterns)for(const pattern of track)while(pattern.length<32)pattern.push(Array.from({length:8},()=>Array(16).fill(0)))}catch(e){console.warn('Load:',e)}}
+function save(){try{const keys=['tempo','track','mode','page','bank','pattern','patterns','values','gate','swing','scale','velocity','octave'];let data=Object.fromEntries(keys.map(k=>[k,state[k]]));data.muted=[...state.muted];data.channels=state.channels;data.ccNumbers=state.ccNumbers;data.clockEnabled=state.clockEnabled;data.timingMode=state.timingMode;data.trackData=state.trackData;localStorage.setItem(storageKey,JSON.stringify(data));flash('Projet sauvegardé dans ce navigateur')}catch(e){flash('Sauvegarde indisponible')}}
 function current(){return state.patterns[state.track][state.pattern][state.page]}
 function clone(){return current().map(row=>row.slice())}
 const deep=value=>JSON.parse(JSON.stringify(value));
@@ -299,7 +313,7 @@ function encoderDetail(){
 }
 function setScreen(element,html){if(element._html!==html){element.innerHTML=html;element._html=html}}
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
-function render(){const s=state;const route=trackMidi(s.track);midiOutput.value=route.output?.id||'';midiChannel.value=String(s.channels[s.track]);document.getElementById('midi-track').textContent=s.track+1;midiClock.checked=s.clockEnabled;const encoder=Number(midiEncoder.value);midiCC.disabled=encoder<4;if(document.activeElement!==midiCC)midiCC.value=s.ccNumbers[encoder];document.getElementById('midi-value').textContent=encoder<4?'Commande musicale · aucun CC':'Valeur CC : '+s.values[encoder];const hits=current().flat().filter(Boolean).length;
+function render(){const s=state;midiTimingMode.value=s.timingMode;const route=trackMidi(s.track);midiOutput.value=route.output?.id||'';midiChannel.value=String(s.channels[s.track]);document.getElementById('midi-track').textContent=s.track+1;midiClock.checked=s.clockEnabled;const encoder=Number(midiEncoder.value);midiCC.disabled=encoder<4;if(document.activeElement!==midiCC)midiCC.value=s.ccNumbers[encoder];document.getElementById('midi-value').textContent=encoder<4?'Commande musicale · aucun CC':'Valeur CC : '+s.values[encoder];const hits=current().flat().filter(Boolean).length;
 if(!s.trackSettings){
 const fields=encoderFields(),cells=[0,1,4,5,2,3,6,7].map(i=>`<div data-encoder-field="${i}" class="track-field ${i===s.lastEncoder?'track-field-selected':''}"><span class="micro">${i+1} · ${esc(fields[i].name)}</span><strong>${esc(fields[i].value)}</strong></div>`).join('');
 setScreen(left,`<div class="micro">${esc(s.mode)} · PISTE ${s.track+1} · PAT ${s.pattern+1} · PAGE ${s.page+1}/32</div><div class="screen-title">COMMANDES SIMPLIFIÉES</div><div class="screen-data track-midi-grid">${cells}</div><span class="micro" id="musical-settings">VEL ${s.velocity} GATE ${s.gate}% OCT ${s.octave} SWING ${s.swing}%</span>`);
@@ -475,10 +489,11 @@ midiOutput.addEventListener('change',async()=>{
  try{
   await HapaxMidiCompat.open(port);if(version!==connectionVersion)return;
   if(port.state==='disconnected')throw Error('Disconnected');
-  await ensureOutput(port);midi.setOutput(HapaxMidiCompat.output(port,{softwareTiming:ipadMidi,onError:()=>{midi.output=null;stop();midiOutput.value='';midiStatus.textContent='Connexion MIDI interrompue · reconnectez la sortie.'}}));midiOutput.value=port.id;midiStatus.textContent='Sortie : '+(port.name||'MIDI')+(ipadMidi?' · pont MIDI iPad':'');
+  const engine=await ensureOutput(port);midi.setOutput(engine.output);midiOutput.value=port.id;midiStatus.textContent='Sortie : '+(port.name||'MIDI')+(ipadMidi?' · pont MIDI iPad':'');
  }catch(error){if(version===connectionVersion){midi.setOutput(null);midiOutput.value='';midiStatus.textContent='Impossible d’ouvrir cette sortie (ou délai dépassé). Vérifiez la connexion MIDI puis actualisez.'}}
  finally{if(version===connectionVersion)render()}
 });
+midiTimingMode.addEventListener('change',()=>changeTimingMode(midiTimingMode.value));
 midiChannel.addEventListener('change',()=>setTrackChannel(Number(midiChannel.value)));
 midiClock.addEventListener('change',()=>{const enabled=midiClock.checked;stop();state.clockEnabled=enabled;midi.clockEnabled=enabled;render()});
 midiEncoder.addEventListener('change',render);
@@ -505,10 +520,13 @@ function tick(){
 }
 
 setInterval(()=>{
- const stats=[...usedEngines()].map(engine=>engine.output?.timing).filter(Boolean);
+ const outputs=[...usedEngines()].map(engine=>engine.output),stats=outputs.map(port=>port?.timing).filter(Boolean);
  const node=document.getElementById('midi-timing');if(!node)return;
  const notes=stats.reduce((sum,t)=>sum+t.notes,0),worst=Math.max(0,...stats.map(t=>t.maxLate));
- const text=stats.length?'Timing pont MIDI · retard maximal des notes : '+worst.toFixed(1)+' ms ('+notes+' notes).'+(worst>10?' Retards détectés sur le navigateur.':''):'Timing MIDI : horodatage natif si disponible. La réception physique reste à vérifier.';
+ let text;
+ if(!outputs.length)text='Timing MIDI : choisissez une sortie pour connaître le mode disponible.';
+ else if(!stats.length)text='Timing MIDI : horodatage natif demandé. Les notes sont envoyées en avance avec leur échéance. La réception physique reste à vérifier.';
+ else text='Timing pont MIDI · retard maximal d’appel logiciel : '+worst.toFixed(1)+' ms ('+notes+' notes). '+(state.timingMode==='software'?'Mode compatibilité choisi.':'Mode natif indisponible pour ce port : repli logiciel.')+' Ce chiffre ne mesure pas le délai du pont ni du câble.'+(outputs.length>stats.length?' Autres sorties : horodatage natif.':'');
  if(node.textContent!==text)node.textContent=text;
 },1000);
 load();

@@ -25,15 +25,15 @@ function call(method, params = {}) {
     ws.send(JSON.stringify({id:key, method, params}));
   });
 }
-const legacy=process.argv.includes('--legacy');
+const legacy=process.argv.includes('--legacy'),ipadNative=process.argv.includes('--ipad-native');
 const mock = `
 localStorage.removeItem('hapax-simulator-v8');
 window.device = {messages:[],clears:0,mode:'ok',requests:[]};
-Object.defineProperty(navigator,'platform',{configurable:true,value:${legacy?'"MacIntel"':'"Linux"'}});
-Object.defineProperty(navigator,'maxTouchPoints',{configurable:true,value:${legacy?5:0}});
+Object.defineProperty(navigator,'platform',{configurable:true,value:${legacy||ipadNative?'"MacIntel"':'"Linux"'}});
+Object.defineProperty(navigator,'maxTouchPoints',{configurable:true,value:${legacy||ipadNative?5:0}});
 const makePort = (id,name) => ({id,name,state:'connected',
   async open(){ device.access.onstatechange?.(); return this; },
-  send(data,at=performance.now()){device.messages.push({port:id,data:[...data],at});},
+  send(data,at=performance.now()){device.messages.push({port:id,data:[...data],at,calledAt:performance.now(),scheduled:arguments.length>1});},
   clear(){ device.clears++; }
 });
 device.port=makePort('test','Test synth'); device.other=makePort('other','Other synth');
@@ -97,6 +97,20 @@ try{
  const on=(r,c)=>evaluate(`document.querySelector(${JSON.stringify(pad(r,c))}).classList.contains('on')`);
  const project=()=>evaluate(`JSON.parse(localStorage.getItem('hapax-simulator-v8'))`);
  await click('#midi-connect');await wait(40);await change('#midi-output','test');await wait(40);
+ // iPad ports with standard scheduling must keep their future timestamp.
+ check(await evaluate(`document.querySelector('#midi-timing-mode').value==='auto'`),'Default timing requests native scheduling when cancellation is available');
+ await click(pad(7,0));await clear();await click('#transport');await wait(60);
+ let modeNotes=await notes();
+ check(modeNotes.length>0&&(legacy?!modeNotes[0].scheduled:modeNotes[0].scheduled&&modeNotes[0].at>modeNotes[0].calledAt),'Automatic mode preserves native future timestamps or falls back for legacy ports');
+ await change('#midi-timing-mode','software');
+ check(await evaluate(`document.querySelector('#transport').textContent.includes('PLAY')`),'Changing timing mode halts playback safely');
+ await clear();await click('#transport');await wait(60);modeNotes=await notes();
+ check(modeNotes.length>0&&!modeNotes[0].scheduled,'Compatibility mode sends only when the JavaScript deadline is due');
+ await click('#transport');await click('#save');
+ check((await project()).timingMode==='software','Timing preference is saved with the project');
+ await change('#midi-timing-mode','auto');await clear();await click('#transport');await wait(60);modeNotes=await notes();
+ check(modeNotes.length>0&&(legacy?!modeNotes[0].scheduled:modeNotes[0].scheduled&&modeNotes[0].at>modeNotes[0].calledAt),'Switching back restores the native or legacy scheduling path');
+ await click('#transport');await click(pad(7,0));
  await click(pad(7,0));await click(pad(6,2));
  // Existing page shortcut, with playback length and undo included.
  await tap(copy);await tap('#rightcol [data-label="→"]');await tap(paste);
@@ -170,7 +184,7 @@ try{
  check(await on(7,1)===before,'Unimplemented automation does not silently edit notes');
  check(await evaluate(`document.querySelector('#notice').textContent.includes('non simulée')`),'Unimplemented functionality is explicitly announced');
  assert.equal(errors.length,0,JSON.stringify(errors));
- console.log(JSON.stringify({status:'passed',legacy,checks,timing,runtimeErrors:errors.length}));
+ console.log(JSON.stringify({status:'passed',legacy,ipadNative,checks,timing,runtimeErrors:errors.length}));
 }finally{
  if(injected)await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:injected});
  ws.close();

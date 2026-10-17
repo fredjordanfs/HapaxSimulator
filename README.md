@@ -105,18 +105,27 @@ choisir la sortie puis tester une note en mode **LIVE** sur le canal de récepti
 réglé dans l'appareil. Garder le navigateur MIDI au premier plan.
 
 L'application web accepte les anciens itérateurs de ports sans `Symbol.iterator`,
-les ports sans `open()` et borne l'attente d'ouverture à cinq secondes. Sur iPad
-ou avec des ports dépourvus de `clear()`, elle gère les échéances et l'annulation
-des messages côté JavaScript pour les ponts qui ignorent les timestamps. Cela
+les ports sans `open()` et borne l'attente d'ouverture à cinq secondes. Le réglage **Programmation des notes** propose :
+
+- **Horodatage natif si disponible** (défaut) : conserver les échéances Web MIDI,
+  y compris sur iPad, lorsque le port expose `clear()` pour annuler la file sur Stop.
+- **Compatibilité iPad (timers)** : envoyer chaque message à son échéance depuis
+  JavaScript pour les ponts qui ignorent les timestamps. Ce mode peut être comparé
+  au précédent sans changer de sortie. Changer de mode arrête la lecture ; SAVE
+  mémorise le choix.
+
+Les ports dépourvus de `clear()` restent en repli logiciel pour que Stop et Panic
+puissent annuler les notes futures. La présence de `clear()` ne prouve pas que le
+pont respecte les timestamps : seul un essai réel valide son implémentation. Cela
 n'ajoute pas l'accès MIDI à Safari et n'établit pas une validation sur matériel réel.
 Le timing dépend alors aussi des timers du navigateur.
 
 Pendant la lecture, seuls le curseur, la position et la barre de progression sont
 mis à jour ; les écrans et les encodeurs ne sont pas reconstruits à chaque pas.
 La file MIDI conserve son prochain timer quand de nouveaux événements plus
-lointains arrivent. Le diagnostic **retard maximal des notes** mesure le retard
+lointains arrivent. Le diagnostic **retard maximal d’appel logiciel** mesure le retard
 logiciel depuis le dernier Play sur les ponts utilisant les timers JavaScript ;
-il ne mesure ni la latence USB ni la réception par le synthétiseur. Le test
+il ne mesure ni les retards internes au pont MIDI, ni la latence USB/DIN, ni la réception par le synthétiseur. Une valeur de 4 ms ne prouve donc pas la régularité du son. Le test
 Chromium ne prouve pas la régularité de Web MIDI Browser sur iPad.
 
 Pour tester un rythme droit, régler **SWING à 0%**, poser des notes espacées
@@ -194,6 +203,7 @@ node tests/browser-track-parameters.mjs --legacy
 node tests/browser-ui.mjs
 node tests/browser-workflow.mjs
 node tests/browser-workflow.mjs --legacy
+node tests/browser-workflow.mjs --ipad-native
 ```
 
 Dans le conteneur cloud isolé, Chromium peut nécessiter `--no-sandbox --disable-dev-shm-usage`.
