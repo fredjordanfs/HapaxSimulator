@@ -11,6 +11,7 @@ et du protocole MIDI ne constituent pas une certification de conformité au mat�
 
 | Fonction du manuel | État du simulateur après vérification |
 | --- | --- |
+| Maintenir une piste ouvre les réglages de sortie et de canal (§1.4 et §1.7, p. 11 et 14). | Implémenté : appui de 500 ms, OUTPUT et CHANNEL sur l'écran gauche, encodeurs physiques 5 et 6. Le menu reste ouvert après relâchement comme adaptation tactile. Canal indépendant par piste ; une seule sortie physique commune, sans entrées MIDI ni routage multiport par piste. |
 | Play relance une séquence déjà en lecture ; Stop remet la position à zéro et désactive REC (§1.5, p. 12). | Corrigé pour les boutons de la façade. Le bouton supplémentaire PLAY/STOP en bas reste un interrupteur pratique. Les différents niveaux de Stop du matériel ne sont pas reproduits : le simulateur coupe les notes immédiatement. |
 | Huit encodeurs pour l'écran gauche, un encodeur de menu pour le droit (§1.8, p. 14). | Centre de rotation visuel corrigé pour les neuf encodeurs. Glissements, retour au point de départ, annulation tactile et clavier testés. Les affectations contextuelles du matériel restent partielles ; un clic incrémente la valeur dans le simulateur. |
 | UNDO et 2ND + UNDO pour REDO ; changement de pattern vide l'historique (§1.20, p. 23). | Corrigé pour les modifications de notes. L'historique ne couvre pas encore tous les paramètres. 2ND est un verrou tactile dans le simulateur, plutôt qu'une combinaison maintenue. |

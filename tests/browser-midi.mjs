@@ -173,6 +173,87 @@ try {
   })()`});
   assert(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
   assert.equal(errors.length,0,JSON.stringify(errors));
+
+  // Real touch hold: settings must open on the screens, never select the track number.
+  let trackChecks=0;
+  const evaluate=async expression=>{
+    const r=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+    assert(!r.exceptionDetails,JSON.stringify(r.exceptionDetails));return r.result.value;
+  };
+  const trackCheck=(ok,label)=>{assert(ok,label);trackChecks++;};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  await call('Emulation.setDeviceMetricsOverride',{width:1180,height:820,deviceScaleFactor:1,mobile:true});
+  await call('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+  await evaluate('window.scrollTo(0,0)');
+  const centre=selector=>evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  const touch=async(type,p)=>{
+    await call('Input.dispatchTouchEvent',{type,touchPoints:['touchEnd','touchCancel'].includes(type)?[]:[{...p,id:1}]});
+    await evaluate('new Promise(requestAnimationFrame)');
+  };
+  const tap=async selector=>{const p=await centre(selector);await touch('touchStart',p);await touch('touchEnd',p)};
+  const hold=async selector=>{const p=await centre(selector);await touch('touchStart',p);await wait(600);return p;};
+  const track=await hold('[data-track="5"]');
+  trackCheck(await evaluate(`document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS · PISTE 6')`),'Hold opens settings on left screen');
+  trackCheck(await evaluate(`document.querySelector('#displayright').textContent.includes('RÉGLAGES PISTE 6')`),'Right screen explains settings');
+  await touch('touchEnd',track);
+  trackCheck(await evaluate(`document.querySelector('[data-track="5"]').getAttribute('aria-expanded')==='true'`),'Menu stays after releasing finger');
+  trackCheck(await evaluate(`getComputedStyle(document.querySelector('[data-track="5"]')).userSelect==='none'&&getSelection().toString()===''`),'Track label is not selected as text');
+  await tap('[data-knob="4"]');await wait(30);
+  trackCheck(await evaluate(`document.querySelector('#midi-output').value==='test'`),'Encoder 5 selects USB output from facade');
+  await tap('[data-knob="5"]');
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='7'`),'Encoder 6 sets track 6 channel to 7');
+  trackCheck(await evaluate(`document.querySelector('#displayleft').textContent.includes('07')`),'Channel is visible on left screen');
+  const channelKnob=await centre('[data-knob="5"]');
+  await touch('touchStart',channelKnob);
+  await touch('touchMove',{x:channelKnob.x,y:channelKnob.y-9});
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='10'`),'Channel drag moves three units');
+  await touch('touchMove',{x:channelKnob.x,y:channelKnob.y-9});
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='10'`),'Repeated pointer coordinate does not accumulate channel changes');
+  await touch('touchMove',channelKnob);await touch('touchEnd',channelKnob);
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='7'`),'Returning channel drag restores initial channel without phantom tap');
+  await evaluate(`device.messages.length=0`);
+  await tap('[data-knob="8"]');
+  trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),'Menu encoder closes settings');
+  await tap('#rightcol [data-label="LIVE"]');
+  await tap('.pad[data-row="7"][data-col="0"]');
+  trackCheck(await evaluate(`device.messages.some(m=>m.data[0]===0x96)`),'Live notes use channel configured from facade');
+  await tap('#rightcol [data-label="STEP"]');
+  const cancelled=await centre('[data-track="2"]');
+  await touch('touchStart',cancelled);await touch('touchCancel',cancelled);await wait(600);
+  trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),'Cancelled hold does not open settings later');
+  await touch('touchStart',cancelled);await touch('touchMove',{x:cancelled.x+25,y:cancelled.y});await wait(600);await touch('touchEnd',cancelled);
+  trackCheck(await evaluate(`!document.querySelector('#displayleft').textContent.includes('TRACK SETTINGS')`),'Moved touch does not open a stale hold menu');
+  await tap('[data-track="1"]');
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='2'`),'Other track retains its channel');
+  const again=await hold('[data-track="5"]');await touch('touchEnd',again);
+  trackCheck(await evaluate(`document.querySelector('#midi-channel').value==='7'`),'Edited track retains its channel after reselection');
+  await tap('#rightcol [data-label="STEP"]');
+  trackCheck(await evaluate(`document.querySelector('[data-track="5"]').getAttribute('aria-expanded')==='false'`),'STEP exits settings');
+  await tap('[data-track="0"]');await tap('#save');
+  trackCheck(await evaluate(`JSON.parse(localStorage.getItem('hapax-simulator-v8')).channels[5]===7`),'Facade channel setting is saved');
+
+  // Fresh session: authorize and choose a port using only the facade.
+  const savedProject=await evaluate(`localStorage.getItem('hapax-simulator-v8')`);
+  await call('Page.reload');
+  let fresh=false;
+  for(let i=0;i<100;i++){
+    if(await evaluate(`window.device?.requests.length===0&&document.querySelector('.knob')?.getAttribute('aria-label')==='Encodeur 1 : 100'`)){fresh=true;break}
+    await wait(100);
+  }
+  assert(fresh,'Fresh facade-only session');
+  const firstTrack=await hold('[data-track="0"]');await touch('touchEnd',firstTrack);
+  await tap('[data-knob="4"]');await wait(30);
+  trackCheck(await evaluate(`device.requests.length===1&&device.requests[0].sysex===false`),'Encoder 5 requests MIDI permission from facade');
+  trackCheck(await evaluate(`document.querySelector('#midi-output').value===''`),'Authorization alone does not choose a port');
+  await tap('[data-knob="4"]');await wait(30);
+  trackCheck(await evaluate(`document.querySelector('#midi-output').value==='test'`),'Second encoder tap chooses first MIDI device');
+  trackCheck(await evaluate(`document.querySelector('#displayleft').textContent.includes('Test synth')`),'Selected USB device appears on simulator screen');
+  if(process.argv.includes('--capture-track-settings')){
+    const shot=await call('Page.captureScreenshot',{format:'png'});
+    const {writeFile}=await import('node:fs/promises');
+    await writeFile('/tmp/hapax-track-settings-ui.png',Buffer.from(shot.data,'base64'));
+  }
+  await evaluate(`localStorage.setItem('hapax-simulator-v8',${JSON.stringify(savedProject)})`);
   await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:injected});
   injected=null;
   await call('Page.reload');
@@ -189,7 +270,7 @@ try {
   }
   assert(restored,'Project and MIDI settings restored without reconnecting hardware');
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log(JSON.stringify({status:'passed',legacy,...result.result.value,restored,runtimeErrors:errors.length}));
+  console.log(JSON.stringify({status:'passed',legacy,...result.result.value,trackChecks,restored,runtimeErrors:errors.length}));
 } finally {
   if(injected) await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:injected});
   ws.close();

@@ -11,6 +11,26 @@ de rétablir une édition de notes. Dans la fenêtre BPM, l'encodeur principal r
 le tempo. Les flèches ↑/↓ changent l'octave et ←/→ changent de page ; le zoom +/−
 et le snapshot ne sont pas encore simulés.
 
+## Régler le canal depuis la façade
+
+Maintenir un bouton de piste 1–16 pendant une demi-seconde ouvre **TRACK SETTINGS**
+sur l'écran gauche. Le chiffre du bouton n'est plus sélectionnable comme du texte.
+Relâcher le doigt : le menu reste ouvert pour faciliter le réglage tactile.
+Le manuel décrit ce menu aux §1.4 et §1.7 (p. 11 et 14).
+
+- L'**encodeur 5**, celui en haut à gauche du groupe situé à droite de l'écran
+  gauche, règle **OUTPUT**. Le toucher une première fois permet d'autoriser MIDI
+  si nécessaire ; ensuite tourner/glisser choisit une sortie détectée.
+- L'**encodeur 6**, juste à sa droite, règle **CHANNEL**, de 1 à 16, pour cette piste.
+- L'**encodeur principal 9** (toucher) ou un bouton de mode comme **STEP** ferme
+  le menu. Un appui court sur une piste sélectionne cette piste et ferme le menu.
+- Au clavier, **Maj+Entrée** sur un bouton de piste ouvre ses réglages.
+
+Les réglages sont affichés sur les écrans du simulateur ; le panneau inférieur
+reste synchronisé. SAVE conserve les canaux. Les réglages non simulés sont
+indiqués comme tels. La sortie physique reste **commune à toutes les pistes**,
+contrairement au routage multiport par piste du matériel ; les canaux sont indépendants.
+
 ## iPad et appareil USB/MIDI
 
 Safari ne fournit pas Web MIDI sur iPad. Une piste est l'application dédiée

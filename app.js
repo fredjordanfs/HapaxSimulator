@@ -4,12 +4,12 @@ const pads=[...document.querySelectorAll('.pad')], knobs=[...document.querySelec
 const left=document.getElementById('displayleft'),right=document.getElementById('displayright'),transport=document.getElementById('transport'),bpm=document.getElementById('bpm'),notice=document.getElementById('notice');
 const leftBtns=[...document.querySelectorAll('#leftcol button')],rightBtns=[...document.querySelectorAll('#rightcol button')];
 const fresh=()=>Array.from({length:16},()=>Array.from({length:8},()=>Array(16).fill(0)));
-const state={playing:false,recording:false,tempo:120,step:0,track:0,mode:'STEP',page:0,bank:'A',pattern:0,values:[100,54,95,0,64,64,64,64,1],patterns:Array.from({length:16},()=>Array.from({length:8},fresh)),clipboard:null,second:false,muted:new Set(),undo:[],redo:[],lastTick:performance.now(),gate:75,swing:0,scale:0,velocity:100,octave:3,metronome:false,fill:false,screenMessage:'',screenUntil:0,bpmEdit:false};
+const state={playing:false,recording:false,tempo:120,step:0,track:0,mode:'STEP',page:0,bank:'A',pattern:0,values:[100,54,95,0,64,64,64,64,1],patterns:Array.from({length:16},()=>Array.from({length:8},fresh)),clipboard:null,second:false,muted:new Set(),undo:[],redo:[],lastTick:performance.now(),gate:75,swing:0,scale:0,velocity:100,octave:3,metronome:false,fill:false,screenMessage:'',screenUntil:0,bpmEdit:false,trackSettings:false};
 const midiChannel=document.getElementById('midi-channel'),midiOutput=document.getElementById('midi-output'),midiClock=document.getElementById('midi-clock'),midiEncoder=document.getElementById('midi-encoder'),midiCC=document.getElementById('midi-cc'),midiStatus=document.getElementById('midi-status');
 state.channels=Array.from({length:16},(_,i)=>i+1);state.ccNumbers=Array.from({length:9},(_,i)=>20+i);state.clockEnabled=false;
 for(let i=1;i<=16;i++)midiChannel.add(new Option(String(i),String(i)));
 for(let i=0;i<9;i++)midiEncoder.add(new Option(String(i+1),String(i)));
-const midi=new HapaxMidi({onStep:playMidiStep,onHalt:()=>{state.playing=false;state.recording=false;state.step=0;render()},onStatus:message=>{midiStatus.textContent=message}});
+const midi=new HapaxMidi({onStep:playMidiStep,onHalt:()=>{state.playing=false;state.recording=false;state.step=0;render()},onStatus:message=>{midiStatus.textContent=message;render()}});
 let midiAccess=null,connectionVersion=0;
 const ipadMidi=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function outputPorts(){return HapaxMidiCompat.ports(midiAccess?.outputs)}
@@ -29,10 +29,25 @@ s.mode==='LIVE'?`LIVE INPUT · TRK ${s.track+1}<br>Tap pads to trigger notes`:
 s.mode==='AUTOM'?`AUTOMATION LANE<br>Encoder 1–8: edit values`:`MODE ${esc(s.mode)}`;
 left.innerHTML=`<div class="micro">SQUARP INSTRUMENTS</div><div class="brand">HAPAX</div><div class="screen-title">${esc(s.mode)}  ·  TRACK ${String(s.track+1).padStart(2,'0')}</div><div class="screen-data"><span class="accent">${s.bank} · PAT ${s.pattern+1} · PAGE ${s.page+1}/4</span><br>${extra}<br><span class="muted">${s.recording?'● REC  ':''}${s.muted.has(s.track)?'MUTED':''}</span></div>`;
 right.innerHTML=`<div class="micro">POLYCHRONIC SEQUENCER</div><div class="screen-title">${s.bpmEdit?'TEMPO':s.playing?'▶ PLAYING':'■ STOPPED'} · ${s.tempo} BPM</div><div class="screen-data">STEP ${String(s.step+1).padStart(2,'0')}/16　 ${hits} NOTES<br><span class="bar" style="--progress:${(s.step+1)*6.25}%"></span>${s.screenUntil>performance.now()?esc(s.screenMessage):`ENC 1 ${s.values[0]}　ENC 9 ${s.values[8]}<br>TRK ${s.track+1}/16 · BANK ${s.bank}`}</div>`;
+if(s.trackSettings){
+ const port=midi.output?.name||'Aucune sortie';
+ left.innerHTML=`<div class="micro">TRACK SETTINGS · PISTE ${s.track+1}</div><div class="screen-title">SORTIE MIDI</div><div class="screen-data track-midi-grid"><div><span class="micro">OUTPUT · ENC 5</span><br><strong>${esc(port)}</strong><br><span class="micro">Sortie commune</span></div><div><span class="micro">CHANNEL · ENC 6</span><br><strong>${String(s.channels[s.track]).padStart(2,'0')}</strong></div></div>`;
+ right.innerHTML=`<div class="micro">RÉGLAGES PISTE ${s.track+1}</div><div class="screen-title">MIDI OUTPUT</div><div class="screen-data">${midiAccess?'ENC 5 : choisir sortie':'Toucher ENC 5 : activer MIDI'}<br>ENC 6 : canal 1–16<br>ENC 9 ou STEP : retour<br><span class="micro">${esc(midiStatus.textContent.slice(0,70))}</span></div>`;
+}
 transport.textContent=s.playing?'■ STOP':'▶ PLAY';transport.classList.toggle('transport-on',s.playing);if(document.activeElement!==bpm)bpm.value=s.tempo;
-tracks.forEach((t,i)=>t.classList.toggle('selected',i===s.track));
+tracks.forEach((t,i)=>{t.classList.toggle('selected',i===s.track);t.setAttribute('aria-expanded',String(s.trackSettings&&i===s.track))});
 pads.forEach(p=>{let r=+p.dataset.row,c=+p.dataset.col;let on=s.mode==='PATTERN'?(r===s.pattern&&c===0):!!current()[r][c];p.classList.toggle('on',on);p.classList.toggle('head',s.playing&&c===s.step);p.classList.toggle('pattern',s.mode==='PATTERN'&&on);p.classList.toggle('live',s.mode==='LIVE'&&on);p.classList.toggle('automation',s.mode==='AUTOM'&&on)});
-knobs.forEach((k,i)=>{k.style.setProperty('--angle',(-135+270*s.values[i]/127)+'deg');k.setAttribute('aria-label','Encodeur '+(i+1)+' : '+s.values[i]);k.title='Encodeur '+(i+1)+' : '+s.values[i]});
+knobs.forEach((k,i)=>{
+ let angle=-135+270*s.values[i]/127,label='Encodeur '+(i+1)+' : '+s.values[i];
+ if(s.trackSettings){
+  if(i===4){const ports=outputPorts();const position=ports.findIndex(p=>p.id===midi.output?.id)+1;angle=-135+270*position/Math.max(1,ports.length);label='Sortie MIDI commune : '+(midi.output?.name||'aucune')}
+  else if(i===5){angle=-135+270*(s.channels[s.track]-1)/15;label='Canal MIDI piste '+(s.track+1)+' : '+s.channels[s.track]}
+  else if(i===8)label='Fermer les réglages de piste';
+  else label='Encodeur '+(i+1)+' : réglage de piste non simulé';
+ }
+ k.style.setProperty('--angle',angle+'deg');k.setAttribute('aria-label',label);k.title=label;
+ k.classList.toggle('settings-unused',s.trackSettings&&![4,5,8].includes(i));
+});
 leftBtns.forEach(b=>b.classList.toggle('active',(b.textContent.trim()==='REC'&&s.recording)||(b.textContent.trim()==='MUTE'&&s.muted.has(s.track))||(b.textContent.trim()==='2ND'&&s.second)));
 rightBtns.forEach(b=>b.classList.toggle('mode-active',b.textContent.trim()===s.mode||b.textContent.trim()===s.bank));
 }
@@ -42,6 +57,20 @@ function stop(){midi.stop();render()}
 function clear(){checkpoint();current().forEach(row=>row.fill(0));flash('Page effacée · UNDO pour annuler');render()}
 function page(delta){state.page=(state.page+delta+4)%4;flash('Page '+(state.page+1)+'/4');render()}
 function changeKnob(i,delta){
+ if(state.trackSettings){
+  if(i===5){setTrackChannel(Math.max(1,Math.min(16,state.channels[state.track]+delta)));return}
+  if(i===4){
+   if(!midiAccess){document.getElementById('midi-connect').click();return}
+   const choices=[null,...outputPorts().filter(port=>port.state!=='disconnected')];
+   const current=choices.findIndex(port=>(port?.id||'')===(midi.output?.id||''));
+   const next=Math.max(0,Math.min(choices.length-1,current+delta));
+   if(next!==current){midiOutput.value=choices[next]?.id||'';midiOutput.dispatchEvent(new Event('change'))}
+   else if(choices.length===1)flash('Aucune sortie MIDI détectée · branchez votre appareil');
+   render();return;
+  }
+  flash('Réglages MIDI : encodeurs 5 (sortie) et 6 (canal)');render();return;
+ }
+
  if(i===8&&state.bpmEdit){state.values[i]=Math.max(0,Math.min(127,state.values[i]+delta));state.tempo=Math.max(30,Math.min(300,state.tempo+delta));bpm.value=state.tempo;render();return}
  state.values[i]=Math.max(0,Math.min(127,state.values[i]+delta));
  if(i===0)state.velocity=state.values[i];
@@ -53,32 +82,64 @@ function changeKnob(i,delta){
 }
 transport.addEventListener('click',play);document.getElementById('reset').addEventListener('click',clear);document.getElementById('save').addEventListener('click',()=>{save();render()});document.getElementById('help').addEventListener('click',()=>{flash('STEP: notes · PATTERN: choix 1–8 · A/B: banques · flèches: pages · COPY/PASTE · UNDO · SAVE');render()});
 bpm.addEventListener('change',()=>{state.tempo=Math.max(30,Math.min(300,Math.round(Number(bpm.value)||120)));bpm.value=state.tempo;render()});
-tracks.forEach((t,i)=>t.addEventListener('click',()=>{state.track=i;flash('Piste '+(i+1));render()}));
+function selectTrack(i){state.track=i;state.trackSettings=false;flash('Piste '+(i+1));render()}
+function openTrackSettings(i){state.track=i;state.trackSettings=true;state.bpmEdit=false;flash('Réglages piste '+(i+1)+' · écran gauche : sortie et canal MIDI');render()}
+function setTrackChannel(channel){
+ if(state.channels[state.track]!==channel){stop();state.channels[state.track]=channel}
+ render();
+}
+tracks.forEach((t,i)=>{
+ let pointer=null,timer=null,startX=0,startY=0,moved=false,opened=false,lastPointer=-Infinity;
+ const cancel=()=>{clearTimeout(timer);timer=null;const id=pointer;pointer=null;if(id!==null&&t.hasPointerCapture(id))t.releasePointerCapture(id)};
+ t.title='Piste '+(i+1)+' · maintenir pour les réglages MIDI';
+ t.setAttribute('aria-controls','displayleft displayright');
+ t.addEventListener('contextmenu',e=>e.preventDefault());
+ t.addEventListener('pointerdown',e=>{
+  if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0))return;
+  pointer=e.pointerId;startX=e.clientX;startY=e.clientY;moved=false;opened=false;
+  t.setPointerCapture(pointer);
+  timer=setTimeout(()=>{timer=null;if(pointer!==null&&!moved){opened=true;openTrackSettings(i)}},500);
+ });
+ t.addEventListener('pointermove',e=>{
+  if(e.pointerId!==pointer)return;
+  if(Math.hypot(e.clientX-startX,e.clientY-startY)>12){moved=true;clearTimeout(timer);timer=null}
+ });
+ t.addEventListener('pointerup',e=>{
+  if(e.pointerId!==pointer)return;
+  const select=!moved&&!opened;lastPointer=performance.now();cancel();if(select)selectTrack(i);
+ });
+ t.addEventListener('pointercancel',e=>{if(e.pointerId===pointer){lastPointer=performance.now();cancel()}});
+ t.addEventListener('lostpointercapture',cancel);
+ t.addEventListener('click',e=>{if(e.detail===0&&performance.now()-lastPointer>100)selectTrack(i)});
+ t.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.shiftKey){e.preventDefault();openTrackSettings(i)}});
+});
 pads.forEach(p=>p.addEventListener('click',()=>{const r=+p.dataset.row,c=+p.dataset.col;if(state.mode==='PATTERN'){if(state.pattern!==r){state.undo=[];state.redo=[]}state.pattern=r;flash('Pattern '+(r+1)+'/8');render();return}if(state.mode==='LIVE'){const pitch=notePitch(r);if(!state.muted.has(state.track))midi.note(state.channels[state.track]-1,pitch,state.velocity,Math.max(1,60000/(state.tempo*4)*state.gate/100));if(state.recording){checkpoint();current()[r][state.playing?midi.step:c]=state.velocity}flash('Note '+pitch+(midi.output?' · MIDI':' · choisissez une sortie MIDI'));render();return}checkpoint();current()[r][c]=current()[r][c]?0:state.velocity;render()}));
 leftBtns.forEach(b=>b.addEventListener('click',()=>{const t=b.textContent.trim();switch(t){case '▶':restart();return;case '■':stop();return;case '●':case 'REC':state.recording=!state.recording;flash(state.recording?'REC activé':'REC désactivé');break;case '2ND':state.second=!state.second;flash(state.second?'2ND activé':'2ND désactivé');break;case 'MUTE':state.muted.has(state.track)?state.muted.delete(state.track):state.muted.add(state.track);break;case 'COPY':state.clipboard=clone();flash('Page copiée');break;case 'PASTE':if(state.clipboard){checkpoint();state.patterns[state.track][state.pattern][state.page]=state.clipboard.map(row=>row.slice());flash('Page collée')}else flash('Presse COPY d’abord');break;case 'DELETE':clear();return;case 'ALGO':checkpoint();current().forEach((row,r)=>row.forEach((_,c)=>row[c]=(r===7&&c%4===0)||(r===3&&c%4===2)||(r===5&&c%2===0)?state.velocity:0));flash('Rythme de démonstration');break;default:flash('Commande '+(t||'libre')+' non simulée')}render()}));
-rightBtns.forEach(b=>b.addEventListener('click',()=>{const t=b.textContent.trim();if(['STEP','LIVE','AUTOM','PATTERN'].includes(t))state.mode=t;else if(t==='A'||t==='B'){state.bank=t;flash('Banque '+t+' (indicateur)')}else if(t==='→')return page(1);else if(t==='←')return page(-1);else if(t==='+'||t==='-')flash('Zoom non simulé · navigation : ← / →');else if(t==='UNDO')applyHistory(state.second?state.redo:state.undo,state.second?state.undo:state.redo);else if(t==='BPM'){state.bpmEdit=!state.bpmEdit;if(state.bpmEdit){bpm.focus();bpm.select()}flash(state.bpmEdit?'BPM · encodeur principal : tempo':'Fenêtre BPM fermée')}else if(t==='↑'||t==='↓'){state.octave=Math.max(0,Math.min(7,state.octave+(t==='↑'?1:-1)));state.values[1]=state.octave*18;}else if(t==='SET'){state.second=!state.second;flash('Paramètres secondaires '+(state.second?'ON':'OFF'))}else if(t==='FILL'){state.fill=!state.fill;flash('FILL '+(state.fill?'ON':'OFF'))}else if(t==='SNAP'){flash('Snapshot non simulé · SAVE sauvegarde le projet')}else flash(t+' : non simulé');render()}));
+rightBtns.forEach(b=>b.addEventListener('click',()=>{const t=b.textContent.trim();if(['STEP','LIVE','AUTOM','PATTERN'].includes(t)){state.trackSettings=false;state.mode=t;}else if(t==='A'||t==='B'){state.bank=t;flash('Banque '+t+' (indicateur)')}else if(t==='→')return page(1);else if(t==='←')return page(-1);else if(t==='+'||t==='-')flash('Zoom non simulé · navigation : ← / →');else if(t==='UNDO')applyHistory(state.second?state.redo:state.undo,state.second?state.undo:state.redo);else if(t==='BPM'){state.trackSettings=false;state.bpmEdit=!state.bpmEdit;if(state.bpmEdit){bpm.focus();bpm.select()}flash(state.bpmEdit?'BPM · encodeur principal : tempo':'Fenêtre BPM fermée')}else if(t==='↑'||t==='↓'){state.octave=Math.max(0,Math.min(7,state.octave+(t==='↑'?1:-1)));state.values[1]=state.octave*18;}else if(t==='SET'){state.second=!state.second;flash('Paramètres secondaires '+(state.second?'ON':'OFF'))}else if(t==='FILL'){state.fill=!state.fill;flash('FILL '+(state.fill?'ON':'OFF'))}else if(t==='SNAP'){flash('Snapshot non simulé · SAVE sauvegarde le projet')}else flash(t+' : non simulé');render()}));
+function clickKnob(i){if(state.trackSettings&&i===8){state.trackSettings=false;render()}else changeKnob(i,1)}
 knobs.forEach((k,i)=>{
- let pointer=null,startY=0,startVal=0,dragged=false;
+ let pointer=null,startY=0,startVal=0,lastDiff=0,dragged=false;
  const release=()=>{if(pointer!==null&&k.hasPointerCapture(pointer))k.releasePointerCapture(pointer);pointer=null};
  k.addEventListener('pointerdown',e=>{
   if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0))return;
-  pointer=e.pointerId;startY=e.clientY;startVal=state.values[i];dragged=false;
+  pointer=e.pointerId;startY=e.clientY;startVal=state.values[i];lastDiff=0;dragged=false;
   k.setPointerCapture(pointer);
  });
  k.addEventListener('pointermove',e=>{
   if(e.pointerId!==pointer||!k.hasPointerCapture(pointer))return;
   const diff=Math.round((startY-e.clientY)/3);
   if(Math.abs(e.clientY-startY)>=3)dragged=true;
+  if(state.trackSettings){const delta=diff-lastDiff;lastDiff=diff;if(delta)changeKnob(i,delta);return}
   const next=Math.max(0,Math.min(127,startVal+diff));
   if(next!==state.values[i])changeKnob(i,next-state.values[i]);
  });
  k.addEventListener('pointerup',e=>{
   if(e.pointerId!==pointer)return;
-  const clicked=!dragged;release();if(clicked)changeKnob(i,1);
+  const clicked=!dragged;release();if(clicked)clickKnob(i);
  });
  k.addEventListener('pointercancel',e=>{if(e.pointerId===pointer)release()});
  k.addEventListener('lostpointercapture',()=>{pointer=null});
- k.addEventListener('click',e=>{if(e.detail===0)changeKnob(i,1)});
+ k.addEventListener('click',e=>{if(e.detail===0)clickKnob(i)});
  k.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(e.key)){
    e.preventDefault();changeKnob(i,['ArrowUp','ArrowRight'].includes(e.key)?1:-1);
@@ -101,30 +162,31 @@ function updateOutputs(){
  if((selected&&!outputPorts().some(port=>port.id===selected))||midi.output?.state==='disconnected'){
   connectionVersion++;midi.setOutput(null);midiStatus.textContent='Sortie déconnectée · choisissez une sortie MIDI.';
  }else midiOutput.value=selected;
- midiOutput.disabled=!midiAccess;
+ midiOutput.disabled=!midiAccess;render();
 }
 document.getElementById('midi-connect').addEventListener('click',async()=>{
  const button=document.getElementById('midi-connect');
- if(!window.isSecureContext||!navigator.requestMIDIAccess){midiStatus.textContent='Web MIDI indisponible dans ce navigateur. Safari sur iPad ne donne pas accès au MIDI. Consultez les instructions iPad ci-dessous ; Chrome/Edge conviennent sur ordinateur.';return}
+ if(!window.isSecureContext||!navigator.requestMIDIAccess){midiStatus.textContent='Web MIDI indisponible dans ce navigateur. Safari sur iPad ne donne pas accès au MIDI. Consultez les instructions iPad ci-dessous ; Chrome/Edge conviennent sur ordinateur.';render();return}
  button.disabled=true;
  try{
   if(!midiAccess){midiAccess=await navigator.requestMIDIAccess({sysex:false});midiAccess.onstatechange=updateOutputs}
   updateOutputs();button.textContent='Actualiser MIDI';
   midiStatus.textContent=midi.output?'Sortie : '+(midi.output.name||'MIDI'):midiOutput.options.length>1?'MIDI autorisé · choisissez une sortie.':'Aucune sortie MIDI détectée. Branchez un appareil ou créez un port virtuel, puis actualisez.';
  }catch(error){midiStatus.textContent='Accès MIDI refusé ou indisponible. Autorisez MIDI dans les paramètres du navigateur.'}
- finally{button.disabled=false}
+ finally{button.disabled=false;render()}
 });
 midiOutput.addEventListener('change',async()=>{
  const version=++connectionVersion,port=outputPorts().find(port=>port.id===midiOutput.value);
  midi.setOutput(null);
- if(!port){midiStatus.textContent='Aucune sortie MIDI sélectionnée.';return}
+ if(!port){midiStatus.textContent='Aucune sortie MIDI sélectionnée.';render();return}
  try{
   await HapaxMidiCompat.open(port);if(version!==connectionVersion)return;
   if(port.state==='disconnected')throw Error('Disconnected');
   midi.setOutput(HapaxMidiCompat.output(port,{softwareTiming:ipadMidi,onError:()=>{midi.setOutput(null);midiOutput.value='';midiStatus.textContent='Connexion MIDI interrompue · reconnectez la sortie.'}}));midiOutput.value=port.id;midiStatus.textContent='Sortie : '+(port.name||'MIDI')+(ipadMidi?' · pont MIDI iPad':'');
  }catch(error){if(version===connectionVersion){midi.setOutput(null);midiOutput.value='';midiStatus.textContent='Impossible d’ouvrir cette sortie (ou délai dépassé). Vérifiez la connexion MIDI puis actualisez.'}}
+ finally{if(version===connectionVersion)render()}
 });
-midiChannel.addEventListener('change',()=>{const channel=Number(midiChannel.value);stop();state.channels[state.track]=channel;render()});
+midiChannel.addEventListener('change',()=>setTrackChannel(Number(midiChannel.value)));
 midiClock.addEventListener('change',()=>{const enabled=midiClock.checked;stop();state.clockEnabled=enabled;midi.clockEnabled=enabled;render()});
 midiEncoder.addEventListener('change',render);
 midiCC.addEventListener('change',()=>{state.ccNumbers[Number(midiEncoder.value)]=Math.max(0,Math.min(119,Math.round(Number(midiCC.value)||0)));midiCC.value=state.ccNumbers[Number(midiEncoder.value)];render()});
