@@ -66,7 +66,15 @@ affichées et les libellés accessibles montrent les unités musicales. L'octave
 changent dès le premier cran, respectivement d'une octave ou d'un point de pourcentage. Ce mode reste **COMMANDES SIMPLIFIÉES** : le véritable
 écran STEP du matériel (§3.4) et ses huit paramètres par note ne sont pas reproduits.
 
-- **COPY**, puis **PASTE** : copier/remplacer la page courante. La longueur de
+- **À un doigt, sans maintien** : toucher **SÉLECTION** (sous les pads), puis
+  les notes à copier une par une. Elles sont surlignées ; retoucher une note la
+  retire de la sélection sans l'effacer. Toucher **COPY**, puis **PASTE**, puis
+  un pad dans la colonne de destination. Les hauteurs et espacements restent
+  identiques. **2ND** transpose au collage. Un second PASTE annule l'attente de
+  destination ; SÉLECTION ou Échap permet aussi d'annuler. La sélection concerne
+  la page visible ; changer de page, piste ou mode l'annule. Ce bouton est une
+  adaptation tactile du simulateur, pas une commande physique du Hapax.
+- **COPY**, puis **PASTE**, hors sélection de notes : copier/remplacer la page courante. La longueur de
   lecture s'étend si la page collée contient des notes au-delà de l'ancienne fin.
 - **Maintenir COPY + toucher une piste**, puis **maintenir PASTE + toucher la
   piste destination** : copier toutes ses pages et patterns, réglages, canal et
@@ -77,14 +85,15 @@ changent dès le premier cran, respectivement d'une octave ou d'un point de pour
 - **COPY + pad STEP** copie une note ; on peut aussi **tenir une ou plusieurs notes
   puis toucher COPY**. **PASTE + pad STEP** place les notes à cette position dans
   le temps, en conservant les hauteurs. **2ND puis PASTE + pad** transpose vers
-  la rangée visée (§3.5, p. 49–50). Seuls les pads tenus sont sélectionnés ; pas
+  la rangée visée (§3.5, p. 49–50). Après une copie de notes, un appui simple sur PASTE attend
+  aussi un toucher de destination ; aucun maintien n'est alors nécessaire. Pas
   encore de sélection rectangulaire ou de notes hors des huit rangées visibles.
 - **DELETE + pad** efface cette note, ou tout le pattern en mode PATTERN.
   **DELETE + piste** efface toutes les notes de la piste, en gardant ses réglages.
 - **UNDO** annule ces collages/effacements, y compris la longueur et le routage
   modifiés. **2ND puis UNDO** rétablit. Changer de pattern vide cet historique.
 
-Les maintiens utilisent deux contacts simultanés sur iPad. Les appuis simples
+Les gestes maintenus demandent au moins deux contacts simultanés ; le bouton SÉLECTION permet de les éviter. Hors sélection ou copie de notes, les appuis simples
 COPY/PASTE restent des raccourcis de page. Un clipboard vide ou de type incompatible
 est annoncé sur l'écran. Les fonctions non implémentées sont signalées ; AUTOM
 n'édite plus des notes sous une fausse apparence de lane d'automation.
@@ -204,6 +213,7 @@ node tests/browser-ui.mjs
 node tests/browser-workflow.mjs
 node tests/browser-workflow.mjs --legacy
 node tests/browser-workflow.mjs --ipad-native
+node tests/browser-selection.mjs
 ```
 
 Dans le conteneur cloud isolé, Chromium peut nécessiter `--no-sandbox --disable-dev-shm-usage`.
@@ -215,3 +225,11 @@ La réception effective doit être vérifiée sur un équipement MIDI réel.
 Le mode `--legacy` simule un iPad avec un pont qui ignore les timestamps,
 expose des itérateurs non standard et ne fournit ni `open()` ni `clear()`.
 Il ne constitue pas un test de l'application iPad réelle.
+
+`tests/browser-selection.mjs` vérifie quatre contacts simultanés (trois notes et
+COPY), le maintien de 600 ms, le déplacement d'un doigt hors de son pad, la
+copie à un doigt, la préservation des sources et des espacements, les exclusions,
+l'annulation et les clics tactiles de confiance avec `detail=0`. Deux formats
+portrait/paysage sont utilisés dans Chromium ; ce n'est pas un test iPad réel.
+Les pads désactivent le pan/pinch natif et capturent le pointeur jusqu'à sa
+libération/annulation, afin qu'un léger mouvement ne perde pas la note tenue.

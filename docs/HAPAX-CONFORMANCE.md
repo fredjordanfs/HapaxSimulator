@@ -15,7 +15,7 @@ et du protocole MIDI ne constituent pas une certification de conformité au mat�
 | Réglages primaires PC, TRIG, LENGTH, RUN, OUTPUT/CHANNEL, INPUT/CHANNEL (§6.2–6.3, p. 89–91). | Implémentés : PC et banques MSB/LSB, FREE/RESTART, 1–512 pas, six directions, ports indépendants, filtre d’entrée et ALL ACTIVE. Réception des messages de canal, notes tenues, enregistrement REC des huit hauteurs visibles. Clic encodeur 1 alterne PC/MSB/LSB ; clic 3 alterne longueur fine/barre. Ces adaptations tactiles ne reproduisent pas tous les sous-menus et gestes du matériel. |
 | Play relance une séquence déjà en lecture ; Stop remet la position à zéro et désactive REC (§1.5, p. 12). | Corrigé pour les boutons de la façade. Le bouton supplémentaire PLAY/STOP en bas reste un interrupteur pratique. Les différents niveaux de Stop du matériel ne sont pas reproduits : le simulateur coupe les notes immédiatement. |
 | Huit encodeurs pour l'écran gauche, un encodeur de menu pour le droit (§1.8, p. 14). | Centre de rotation visuel corrigé pour les neuf encodeurs. Glissements, retour au point de départ, annulation tactile et clavier testés. Les affectations contextuelles du matériel restent partielles ; un clic incrémente la valeur dans le simulateur. |
-| Copier/coller des notes (§3.5, p. 49–50), patterns (§5.9, p. 83) et pistes (§6.5, p. 93). | Gestes COPY/PASTE + pad/piste implémentés ; patterns et pistes copient toutes leurs pages et réglages. Collage temporel et transposition 2ND pour les notes visibles. Raccourci appui simple pour copier/coller une page ; la longueur de lecture est étendue si nécessaire. UNDO/REDO restaure les collages, réglages et longueurs concernés. Sélection des seuls pads tenus, pas encore les plages rectangulaires ; DELETE + piste ne réinitialise que les notes. |
+| Copier/coller des notes (§3.5, p. 49–50), patterns (§5.9, p. 83) et pistes (§6.5, p. 93). | Gestes COPY/PASTE + pad/piste implémentés ; patterns et pistes copient toutes leurs pages et réglages. Collage temporel et transposition 2ND pour les notes visibles. Raccourci appui simple pour copier/coller une page ; la longueur de lecture est étendue si nécessaire. UNDO/REDO restaure les collages, réglages et longueurs concernés. Sélection des pads tenus ou adaptation à un doigt via SÉLECTION/COPY/PASTE, pas encore les plages rectangulaires ; DELETE + piste ne réinitialise que les notes. |
 | UNDO et 2ND + UNDO pour REDO ; changement de pattern vide l'historique (§1.20, p. 23). | Corrigé pour les modifications de notes. L'historique ne couvre pas encore tous les paramètres. 2ND est un verrou tactile dans le simulateur, plutôt qu'une combinaison maintenue. |
 | Fenêtre BPM : encodeur principal pour le tempo (§1.23, p. 26). | Corrigé, y compris l'affichage du champ BPM lorsqu'il a le focus. Seuls les BPM entiers sont proposés ; décimales, tap tempo et élasticité ne sont pas reproduits. |
 | Flèches horizontales pour les pages, verticales pour l'octave, +/− pour le zoom (§3.3, p. 46). | Navigation par pages conservée ; flèches verticales corrigées pour l'octave. +/− annonce maintenant le zoom non simulé, au lieu de changer de page. Plage d'octave simplifiée 0–7, différente de celle du matériel (0–10). |
@@ -72,3 +72,12 @@ sans annulation native conservent le repli logiciel. `--ipad-native` vérifie le
 n'inclut pas la latence du pont MIDI, du câble ou du synthétiseur. L'enregistrement
 fourni montre SWING 0% et 4 ms d'appel logiciel, mais sa piste audio est silencieuse :
 il ne permet pas de mesurer les attaques réelles du Nina.
+
+La copie partielle peut maintenant utiliser des touchers successifs, sans maintien :
+SÉLECTION, notes, COPY, PASTE, destination. Ce parcours est une adaptation tactile
+supplémentaire. `tests/browser-selection.mjs` couvre aussi trois notes maintenues
+plus COPY, le déplacement du doigt hors du pad et les clics tactiles `detail=0`.
+Quarante contrôles passent dans Chromium, en portrait et paysage. Safari/WebKit
+n'a pas été exécuté : le navigateur WebKit n'est pas installé et son téléchargement
+est bloqué par l'accès réseau de l'environnement. Cela ne valide pas Web MIDI
+Browser/iPadOS réel.
